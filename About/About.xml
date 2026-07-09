@@ -12,6 +12,7 @@
         <li>
             <packageId>RimSynapse.Core</packageId>
             <displayName>RimSynapse - Core</displayName>
+            <downloadUrl>https://github.com/RimSynapse/RimSynapse-Core/releases/latest</downloadUrl>
         </li>
     </modDependencies>
     <loadAfter>
