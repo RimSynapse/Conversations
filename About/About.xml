@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
     <name>RimSynapse - Chat</name>
     <author>RimSynapse Team</author>
@@ -20,6 +20,9 @@
     </loadAfter>
     <description>
 [h1]RimSynapse - Chat[/h1]
+[b]📚 [url=https://github.com/RimSynapse/RimSynapse-Chat/wiki]Official Wiki & Documentation[/url][/b]
+
 [b]Companion Mod for RimSynapse.[/b]
     </description>
 </ModMetaData>
+
