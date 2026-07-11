@@ -6,6 +6,7 @@
     <url>https://github.com/RimSynapse/RimSynapse-Chat</url>
     <modVersion>0.2.1</modVersion>
     <supportedVersions>
+        <li>1.5</li>
         <li>1.6</li>
     </supportedVersions>
     <modDependencies>
@@ -13,35 +14,29 @@
             <packageId>RimSynapse.Core</packageId>
             <displayName>RimSynapse - Core</displayName>
             <downloadUrl>https://github.com/RimSynapse/RimSynapse-Core/releases/latest</downloadUrl>
-        </li>
-        <li>
-            <packageId>ludeon.rimworld.royalty</packageId>
-            <displayName>Royalty</displayName>
-        </li>
-        <li>
-            <packageId>ludeon.rimworld.ideology</packageId>
-            <displayName>Ideology</displayName>
-        </li>
-        <li>
-            <packageId>ludeon.rimworld.biotech</packageId>
-            <displayName>Biotech</displayName>
-        </li>
-        <li>
-            <packageId>ludeon.rimworld.anomaly</packageId>
-            <displayName>Anomaly</displayName>
+            <steamWorkshopUrl>steam://url/CommunityFilePage/3760829776</steamWorkshopUrl>
         </li>
     </modDependencies>
     <loadAfter>
         <li>RimSynapse.Core</li>
+        <li>Ludeon.RimWorld.Royalty</li>
+        <li>Ludeon.RimWorld.Ideology</li>
+        <li>Ludeon.RimWorld.Biotech</li>
+        <li>Ludeon.RimWorld.Anomaly</li>
     </loadAfter>
     <description>
 [h1]RimSynapse - Chat[/h1]
-[b]?? [url=https://github.com/RimSynapse/RimSynapse-Chat/wiki]Official Wiki &amp; Documentation[/url][/b]
+[b]📚 [url=https://github.com/RimSynapse/RimSynapse-Chat/wiki]Official Wiki &amp; Documentation[/url][/b]
 
 [b]Companion Mod for RimSynapse.[/b]
+Allows colonists to converse dynamically using LLMs.
+
+[h2]Compatibility Matrix[/h2]
+[list]
+[*] [b]Royalty DLC:[/b] Compatible &amp; Optional. Enables noble tone demands and psycast interjections.
+[*] [b]Ideology DLC:[/b] Compatible &amp; Optional. Enables faith debates and active proselytizing.
+[*] [b]Biotech DLC:[/b] Compatible &amp; Optional. Enables xenotype dialects and mechanitor comms.
+[*] [b]Anomaly DLC:[/b] Compatible &amp; Optional. Enables paranoid void whispers.
+[/list]
     </description>
 </ModMetaData>
-
-
-
-
