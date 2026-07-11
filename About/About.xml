@@ -14,6 +14,22 @@
             <displayName>RimSynapse - Core</displayName>
             <downloadUrl>https://github.com/RimSynapse/RimSynapse-Core/releases/latest</downloadUrl>
         </li>
+        <li>
+            <packageId>ludeon.rimworld.royalty</packageId>
+            <displayName>Royalty</displayName>
+        </li>
+        <li>
+            <packageId>ludeon.rimworld.ideology</packageId>
+            <displayName>Ideology</displayName>
+        </li>
+        <li>
+            <packageId>ludeon.rimworld.biotech</packageId>
+            <displayName>Biotech</displayName>
+        </li>
+        <li>
+            <packageId>ludeon.rimworld.anomaly</packageId>
+            <displayName>Anomaly</displayName>
+        </li>
     </modDependencies>
     <loadAfter>
         <li>RimSynapse.Core</li>
@@ -25,6 +41,7 @@
 [b]Companion Mod for RimSynapse.[/b]
     </description>
 </ModMetaData>
+
 
 
 
