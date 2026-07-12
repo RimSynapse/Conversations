@@ -25,18 +25,24 @@
         <li>Ludeon.RimWorld.Anomaly</li>
     </loadAfter>
     <description>
-[h1]RimSynapse - Chat[/h1]
-[b]📚 [url=https://github.com/RimSynapse/RimSynapse-Chat/wiki]Official Wiki &amp; Documentation[/url][/b]
+RimSynapse - Chat
+Official Wiki and Documentation: https://github.com/RimSynapse/RimSynapse-Chat/wiki
 
-[b]Companion Mod for RimSynapse.[/b]
+Companion Mod for RimSynapse.
 Allows colonists to converse dynamically using LLMs.
 
-[h2]Compatibility Matrix[/h2]
-[list]
-[*] [b]Royalty DLC:[/b] Compatible &amp; Optional. Enables noble tone demands and psycast interjections.
-[*] [b]Ideology DLC:[/b] Compatible &amp; Optional. Enables faith debates and active proselytizing.
-[*] [b]Biotech DLC:[/b] Compatible &amp; Optional. Enables xenotype dialects and mechanitor comms.
-[*] [b]Anomaly DLC:[/b] Compatible &amp; Optional. Enables paranoid void whispers.
-[/list]
+--- Changelog ---
+v0.4.0
+- Updated to support RimSynapse Core v0.4.0 (Multi-provider routing and Image generation).
+
+--- Compatibility Matrix ---
+- Royalty DLC: Compatible and Optional. Enables noble tone demands and psycast interjections.
+- Ideology DLC: Compatible and Optional. Enables faith debates and active proselytizing.
+- Biotech DLC: Compatible and Optional. Enables xenotype dialects and mechanitor comms.
+- Anomaly DLC: Compatible and Optional. Enables paranoid void whispers.
+- RimSynapse - Psychology: Compatible and Optional. Colonists will naturally bring up their deep core memories, traumas, and trust levels during everyday conversations.
+
+--- Requirements ---
+- RimSynapse - Core (Must be loaded before this mod)
     </description>
 </ModMetaData>
