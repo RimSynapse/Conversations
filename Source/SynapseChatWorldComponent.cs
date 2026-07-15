@@ -10,6 +10,7 @@ namespace RimSynapse.Chat
     public class SynapseChatWorldComponent : WorldComponent
     {
         public List<SynapseChatMessage> chatHistory = new List<SynapseChatMessage>();
+        public List<PawnConversation> pawnConversations = new List<PawnConversation>();
         public bool chatWindowOpen;
 
         public SynapseChatWorldComponent(World world) : base(world)
@@ -20,6 +21,7 @@ namespace RimSynapse.Chat
         {
             base.ExposeData();
             Scribe_Collections.Look(ref chatHistory, "chatHistory", LookMode.Deep);
+            Scribe_Collections.Look(ref pawnConversations, "pawnConversations", LookMode.Deep);
             Scribe_Values.Look(ref chatWindowOpen, "chatWindowOpen", false);
 
             if (Scribe.mode == LoadSaveMode.LoadingVars)
@@ -27,6 +29,10 @@ namespace RimSynapse.Chat
                 if (chatHistory == null)
                 {
                     chatHistory = new List<SynapseChatMessage>();
+                }
+                if (pawnConversations == null)
+                {
+                    pawnConversations = new List<PawnConversation>();
                 }
             }
         }
