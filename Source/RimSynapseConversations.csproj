@@ -49,7 +49,7 @@
         
         <!-- Reference Core Mod -->
         <Reference Include="RimSynapseCore">
-            <HintPath>..\..\RimSynapse-Core\Assemblies\RimSynapseCore.dll</HintPath>
+            <HintPath>..\..\Core\Assemblies\RimSynapseCore.dll</HintPath>
             <Private>false</Private>
         </Reference>
         
