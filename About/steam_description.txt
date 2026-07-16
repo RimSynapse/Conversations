@@ -1,0 +1,23 @@
+[h1]RimSynapse - Conversations[/h1]
+[b]📚 [url=https://github.com/RimSynapse/RimSynapse-Conversations/wiki]Official Wiki and Documentation[/url][/b]
+
+[b]Companion Mod for RimSynapse.[/b]
+Allows colonists to converse dynamically using LLMs.
+
+[h2]Changelog[/h2]
+[b]v0.4.0[/b]
+- Updated to support RimSynapse Core v0.4.0 (Multi-provider routing and Image generation).
+
+[h2]Compatibility Matrix[/h2]
+[list]
+[*] [b]Royalty DLC:[/b] Compatible and Optional. Enables noble tone demands and psycast interjections.
+[*] [b]Ideology DLC:[/b] Compatible and Optional. Enables faith debates and active proselytizing.
+[*] [b]Biotech DLC:[/b] Compatible and Optional. Enables xenotype dialects and mechanitor comms.
+[*] [b]Anomaly DLC:[/b] Compatible and Optional. Enables paranoid void whispers.
+[*] [b]RimSynapse - Psychology:[/b] Compatible and Optional. Colonists will naturally bring up their deep core memories, traumas, and trust levels during everyday conversations.
+[/list]
+
+[h2]Requirements[/h2]
+[list]
+[*] [b]RimSynapse - Core[/b] (Must be loaded before this mod)
+[/list]

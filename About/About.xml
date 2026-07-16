@@ -1,24 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-    <name>RimSynapse - Chat</name>
+    <name>RimSynapse - Conversations</name>
     <author>RimSynapse Team</author>
-    <packageId>RimSynapse.Chat</packageId>
-    <url>https://github.com/RimSynapse/RimSynapse-Chat</url>
-    <modVersion>0.2.0</modVersion>
+    <packageId>RimSynapse.Conversations</packageId>
+    <url>https://github.com/RimSynapse/RimSynapse-Conversations</url>
+    <modVersion>0.3.0</modVersion>
     <supportedVersions>
+        <li>1.5</li>
         <li>1.6</li>
     </supportedVersions>
     <modDependencies>
         <li>
             <packageId>RimSynapse.Core</packageId>
             <displayName>RimSynapse - Core</displayName>
+            <downloadUrl>https://github.com/RimSynapse/RimSynapse-Core/releases/latest</downloadUrl>
+            <steamWorkshopUrl>steam://url/CommunityFilePage/3760829776</steamWorkshopUrl>
         </li>
     </modDependencies>
     <loadAfter>
         <li>RimSynapse.Core</li>
+        <li>Ludeon.RimWorld.Royalty</li>
+        <li>Ludeon.RimWorld.Ideology</li>
+        <li>Ludeon.RimWorld.Biotech</li>
+        <li>Ludeon.RimWorld.Anomaly</li>
     </loadAfter>
     <description>
-[h1]RimSynapse - Chat[/h1]
-[b]Companion Mod for RimSynapse.[/b]
+RimSynapse - Conversations
+Official Wiki and Documentation: https://github.com/RimSynapse/RimSynapse-Conversations/wiki
+
+Companion Mod for RimSynapse.
+Allows colonists to converse dynamically using LLMs.
+
+--- Changelog ---
+v0.4.0
+- Updated to support RimSynapse Core v0.4.0 (Multi-provider routing and Image generation).
+
+--- Compatibility Matrix ---
+- Royalty DLC: Compatible and Optional. Enables noble tone demands and psycast interjections.
+- Ideology DLC: Compatible and Optional. Enables faith debates and active proselytizing.
+- Biotech DLC: Compatible and Optional. Enables xenotype dialects and mechanitor comms.
+- Anomaly DLC: Compatible and Optional. Enables paranoid void whispers.
+- RimSynapse - Psychology: Compatible and Optional. Colonists will naturally bring up their deep core memories, traumas, and trust levels during everyday conversations.
+
+--- Requirements ---
+- RimSynapse - Core (Must be loaded before this mod)
     </description>
 </ModMetaData>

@@ -1,0 +1,5 @@
+is_global = true
+build_property.RootNamespace = RimSynapse.Chat
+build_property.ProjectDir = d:\github\RimSynapse-Chat\Source\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
