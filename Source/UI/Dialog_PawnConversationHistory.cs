@@ -4,13 +4,13 @@ using UnityEngine;
 using Verse;
 using RimWorld;
 
-namespace RimSynapse.Chat
+namespace RimSynapse.Conversations
 {
     /// <summary>
     /// Dual-pane window that resembles a personal chat application,
     /// displaying a list of contacts on the left and conversation bubble history on the right.
     /// </summary>
-    public class Dialog_PawnChatHistory : Window
+    public class Dialog_PawnConversationHistory : Window
     {
         private Pawn pawn;
         private Pawn selectedRecipient;
@@ -19,7 +19,7 @@ namespace RimSynapse.Chat
 
         public override Vector2 InitialSize => new Vector2(720f, 540f);
 
-        public Dialog_PawnChatHistory(Pawn pawn)
+        public Dialog_PawnConversationHistory(Pawn pawn)
         {
             this.pawn = pawn;
             doCloseX = true;
@@ -31,7 +31,7 @@ namespace RimSynapse.Chat
 
         public override void DoWindowContents(Rect inRect)
         {
-            var worldComp = Find.World?.GetComponent<SynapseChatWorldComponent>();
+            var worldComp = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
             if (worldComp == null || pawn == null) return;
 
             // Title
@@ -197,7 +197,7 @@ namespace RimSynapse.Chat
             }
         }
 
-        private float CalculateChatScrollHeight(List<SynapseChatMessage> messages, float width)
+        private float CalculateChatScrollHeight(List<SynapseConversationMessage> messages, float width)
         {
             float total = 10f;
             foreach (var msg in messages)

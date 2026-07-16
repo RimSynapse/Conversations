@@ -6,12 +6,12 @@ using UnityEngine;
 using Newtonsoft.Json;
 using RimSynapse.Comps;
 
-namespace RimSynapse.Chat.API
+namespace RimSynapse.Conversations.API
 {
     /// <summary>
     /// Universe action handlers for ChatMcpTools: mood, relationship, and inspiration tools.
     /// </summary>
-    public static partial class ChatMcpTools
+    public static partial class ConversationMcpTools
     {
         private static string TriggerMoodBoosterHandler(string argumentsJson)
         {

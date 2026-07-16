@@ -5,12 +5,12 @@ using RimWorld;
 using Verse;
 using Newtonsoft.Json;
 
-namespace RimSynapse.Chat.API
+namespace RimSynapse.Conversations.API
 {
     /// <summary>
     /// DLC-specific tool handlers for ChatMcpTools: Royalty, Ideology, Biotech, Anomaly, and SOS2/Odyssey.
     /// </summary>
-    public static partial class ChatMcpTools
+    public static partial class ConversationMcpTools
     {
         private static string GetRoyalDemandsHandler(string argumentsJson)
         {

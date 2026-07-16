@@ -1,19 +1,19 @@
 using Verse;
 
-namespace RimSynapse.Chat
+namespace RimSynapse.Conversations
 {
     /// <summary>
-    /// Represents an individual chat message in the storyteller dialogue history.
+    /// Represents an individual message in the storyteller dialogue history.
     /// </summary>
-    public class SynapseChatMessage : IExposable
+    public class SynapseConversationMessage : IExposable
     {
         public string sender; // "Player" or "Storyteller"
         public string message;
         public int gameTick;
 
-        public SynapseChatMessage() {}
+        public SynapseConversationMessage() {}
 
-        public SynapseChatMessage(string sender, string message, int gameTick)
+        public SynapseConversationMessage(string sender, string message, int gameTick)
         {
             this.sender = sender;
             this.message = message;

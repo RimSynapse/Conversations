@@ -6,15 +6,15 @@ using Verse;
 using Newtonsoft.Json;
 using RimSynapse.Comps;
 
-namespace RimSynapse.Chat.API
+namespace RimSynapse.Conversations.API
 {
     /// <summary>
     /// Registers and handles MCP tools for RimSynapse-Chat, integrating DLCs and balanced game-engine actions.
     /// Tool handlers are split across partial files:
-    ///   - ChatMcpTools_UniverseHandlers.cs (mood, relationship, inspiration)
-    ///   - ChatMcpTools_DlcHandlers.cs (Royalty, Ideology, Biotech, Anomaly, SOS2)
+    ///   - ConversationMcpTools_UniverseHandlers.cs (mood, relationship, inspiration)
+    ///   - ConversationMcpTools_DlcHandlers.cs (Royalty, Ideology, Biotech, Anomaly, SOS2)
     /// </summary>
-    public static partial class ChatMcpTools
+    public static partial class ConversationMcpTools
     {
         private static Dictionary<string, int> s_MoodCooldowns = new Dictionary<string, int>();
         private static Dictionary<string, int> s_RelationCooldowns = new Dictionary<string, int>();

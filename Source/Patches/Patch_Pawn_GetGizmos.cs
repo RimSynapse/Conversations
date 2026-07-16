@@ -4,7 +4,7 @@ using UnityEngine;
 using Verse;
 using RimWorld;
 
-namespace RimSynapse.Chat.Patches
+namespace RimSynapse.Conversations.Patches
 {
     /// <summary>
     /// Harmony patch on Pawn.GetGizmos to display a "Chat History" button on colonist inspect panes.
@@ -30,7 +30,7 @@ namespace RimSynapse.Chat.Patches
                 icon = ContentFinder<Texture2D>.Get("UI/Commands/ChatHistoryIcon", false) ?? BaseContent.BadTex,
                 action = () =>
                 {
-                    Find.WindowStack.Add(new Dialog_PawnChatHistory(__instance));
+                    Find.WindowStack.Add(new Dialog_PawnConversationHistory(__instance));
                 }
             };
         }

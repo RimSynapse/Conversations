@@ -4,12 +4,12 @@ using Verse;
 using RimWorld;
 using RimSynapse.Models;
 
-namespace RimSynapse.Chat
+namespace RimSynapse.Conversations
 {
     /// <summary>
     /// A floating, draggable window that lets players chat directly with the active storyteller in-game.
     /// </summary>
-    public class StorytellerChatWindow : Window
+    public class StorytellerConversationWindow : Window
     {
         private Vector2 scrollPosition;
         private string inputBuf = "";
@@ -18,7 +18,7 @@ namespace RimSynapse.Chat
 
         public override Vector2 InitialSize => new Vector2(420f, 520f);
 
-        public StorytellerChatWindow()
+        public StorytellerConversationWindow()
         {
             doCloseX = true;
             closeOnClickedOutside = false;
@@ -29,7 +29,7 @@ namespace RimSynapse.Chat
 
         public override void DoWindowContents(Rect inRect)
         {
-            var worldComp = Find.World?.GetComponent<SynapseChatWorldComponent>();
+            var worldComp = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
             if (worldComp == null) return;
 
             // Title Header
@@ -118,7 +118,7 @@ namespace RimSynapse.Chat
             }
         }
 
-        private float CalculateScrollHeight(List<SynapseChatMessage> history, float width)
+        private float CalculateScrollHeight(List<SynapseConversationMessage> history, float width)
         {
             float total = 0f;
             foreach (var msg in history)
@@ -128,9 +128,9 @@ namespace RimSynapse.Chat
             return total;
         }
 
-        private void SubmitMessage(SynapseChatWorldComponent worldComp, string messageText)
+        private void SubmitMessage(SynapseConversationsWorldComponent worldComp, string messageText)
         {
-            worldComp.chatHistory.Add(new SynapseChatMessage("Player", messageText, Find.TickManager.TicksGame));
+            worldComp.chatHistory.Add(new SynapseConversationMessage("Player", messageText, Find.TickManager.TicksGame));
 
             string storytellerLabel = Find.Storyteller?.def?.LabelCap ?? "Storyteller";
 
@@ -165,7 +165,7 @@ namespace RimSynapse.Chat
             }
 
             SynapseClient.ChatAsync(
-                RimSynapseChatMod.ModHandle,
+                RimSynapseConversationsMod.ModHandle,
                 apiMessages,
                 new ChatOptions { priority = 2, requestName = "Storyteller Direct Chat" },
                 result =>
@@ -176,7 +176,7 @@ namespace RimSynapse.Chat
 
                         SynapseGameComponent.Enqueue(() =>
                         {
-                            worldComp.chatHistory.Add(new SynapseChatMessage("Storyteller", reply, Find.TickManager.TicksGame));
+                            worldComp.chatHistory.Add(new SynapseConversationMessage("Storyteller", reply, Find.TickManager.TicksGame));
                             scrollToBottom = true;
 
                             var extension = Find.Storyteller?.def?.GetModExtension<StorytellerVoiceExtension>();
@@ -215,7 +215,7 @@ namespace RimSynapse.Chat
             }
 
             SynapseClient.SendAudioAsync(
-                RimSynapseChatMod.ModHandle,
+                RimSynapseConversationsMod.ModHandle,
                 request,
                 new ChatOptions { priority = 2, requestName = "Storyteller Response Voice" },
                 audioResult =>

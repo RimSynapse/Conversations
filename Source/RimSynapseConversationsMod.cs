@@ -1,35 +1,35 @@
 using HarmonyLib;
 using Verse;
 
-namespace RimSynapse.Chat
+namespace RimSynapse.Conversations
 {
-    public class RimSynapseChatMod : Mod
+    public class RimSynapseConversationsMod : Mod
     {
         public static SynapseModHandle ModHandle;
 
-        public RimSynapseChatMod(ModContentPack content) : base(content)
+        public RimSynapseConversationsMod(ModContentPack content) : base(content)
         {
             // Register with RimSynapse Core
-            ModHandle = SynapseCore.Register("RimSynapse.Chat", "RimSynapse - Chat");
+            ModHandle = SynapseCore.Register("RimSynapse.Conversations", "RimSynapse - Conversations");
 
             // Register MCP Tools
-            API.ChatMcpTools.RegisterTools();
+            API.ConversationMcpTools.RegisterTools();
 
             // Apply Harmony patches
-            var harmony = new Harmony("RimSynapse.Chat");
+            var harmony = new Harmony("RimSynapse.Conversations");
             harmony.PatchAll();
 
-            SynapseLogger.Info("Chat mod initialized and Harmony patches applied successfully.", "chat");
+            SynapseLogger.Info("Conversations mod initialized and Harmony patches applied successfully.", "conversations");
         }
 
-        public override string SettingsCategory() => "RimSynapse - Chat";
+        public override string SettingsCategory() => "RimSynapse - Conversations";
 
         public override void DoSettingsWindowContents(UnityEngine.Rect inRect)
         {
             Listing_Standard listingStandard = new Listing_Standard();
             listingStandard.Begin(inRect);
 
-            listingStandard.Label("Note: Chat history settings and routing are configured in RimSynapse Core settings.");
+            listingStandard.Label("Note: Conversation history settings and routing are configured in RimSynapse Core settings.");
             listingStandard.Gap(12f);
 
             if (listingStandard.ButtonText("Open Encyclopedia"))

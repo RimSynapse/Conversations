@@ -3,7 +3,7 @@ using UnityEngine;
 using Verse;
 using RimWorld;
 
-namespace RimSynapse.Chat.Patches
+namespace RimSynapse.Conversations.Patches
 {
     /// <summary>
     /// Harmony patch on MapInterface.MapInterfaceOnGUI to render a Storyteller Chat toggle button on the HUD.
@@ -26,13 +26,13 @@ namespace RimSynapse.Chat.Patches
 
             if (Widgets.ButtonText(btnRect, "Storyteller Chat"))
             {
-                if (Find.WindowStack.IsOpen<StorytellerChatWindow>())
+                if (Find.WindowStack.IsOpen<StorytellerConversationWindow>())
                 {
-                    Find.WindowStack.TryRemove(typeof(StorytellerChatWindow));
+                    Find.WindowStack.TryRemove(typeof(StorytellerConversationWindow));
                 }
                 else
                 {
-                    Find.WindowStack.Add(new StorytellerChatWindow());
+                    Find.WindowStack.Add(new StorytellerConversationWindow());
                 }
             }
         }

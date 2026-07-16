@@ -4,7 +4,7 @@ using Verse;
 using RimSynapse.Comps;
 using RimSynapse.Models;
 
-namespace RimSynapse.Chat.Patches
+namespace RimSynapse.Conversations.Patches
 {
     /// <summary>
     /// Handles non-response effects when a pawn chooses not to engage in a social interaction.

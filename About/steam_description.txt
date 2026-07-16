@@ -1,5 +1,5 @@
-[h1]RimSynapse - Chat[/h1]
-[b]📚 [url=https://github.com/RimSynapse/RimSynapse-Chat/wiki]Official Wiki and Documentation[/url][/b]
+[h1]RimSynapse - Conversations[/h1]
+[b]📚 [url=https://github.com/RimSynapse/RimSynapse-Conversations/wiki]Official Wiki and Documentation[/url][/b]
 
 [b]Companion Mod for RimSynapse.[/b]
 Allows colonists to converse dynamically using LLMs.

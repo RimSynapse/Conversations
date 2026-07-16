@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-    <name>RimSynapse - Chat</name>
+    <name>RimSynapse - Conversations</name>
     <author>RimSynapse Team</author>
-    <packageId>RimSynapse.Chat</packageId>
-    <url>https://github.com/RimSynapse/RimSynapse-Chat</url>
+    <packageId>RimSynapse.Conversations</packageId>
+    <url>https://github.com/RimSynapse/RimSynapse-Conversations</url>
     <modVersion>0.3.0</modVersion>
     <supportedVersions>
         <li>1.5</li>
@@ -25,8 +25,8 @@
         <li>Ludeon.RimWorld.Anomaly</li>
     </loadAfter>
     <description>
-RimSynapse - Chat
-Official Wiki and Documentation: https://github.com/RimSynapse/RimSynapse-Chat/wiki
+RimSynapse - Conversations
+Official Wiki and Documentation: https://github.com/RimSynapse/RimSynapse-Conversations/wiki
 
 Companion Mod for RimSynapse.
 Allows colonists to converse dynamically using LLMs.

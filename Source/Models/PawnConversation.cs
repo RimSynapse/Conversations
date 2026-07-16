@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Verse;
 
-namespace RimSynapse.Chat
+namespace RimSynapse.Conversations
 {
     /// <summary>
     /// Stores the short-term active conversation history between two pawns.
@@ -10,7 +10,7 @@ namespace RimSynapse.Chat
     {
         public string pawnAId;
         public string pawnBId;
-        public List<SynapseChatMessage> messages = new List<SynapseChatMessage>();
+        public List<SynapseConversationMessage> messages = new List<SynapseConversationMessage>();
         public int lastTick;
 
         public PawnConversation()
@@ -35,7 +35,7 @@ namespace RimSynapse.Chat
             {
                 if (messages == null)
                 {
-                    messages = new List<SynapseChatMessage>();
+                    messages = new List<SynapseConversationMessage>();
                 }
             }
         }

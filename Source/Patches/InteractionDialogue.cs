@@ -8,7 +8,7 @@ using RimSynapse.Models;
 using RimSynapse.Comps;
 using Newtonsoft.Json;
 
-namespace RimSynapse.Chat.Patches
+namespace RimSynapse.Conversations.Patches
 {
     /// <summary>
     /// LLM dialogue generation, memory propagation, and earshot calculation
@@ -18,7 +18,7 @@ namespace RimSynapse.Chat.Patches
     {
         private static void TriggerLlmDialogue(Pawn initiator, Pawn recipient, InteractionDef intDef)
         {
-            var worldComp = Find.World?.GetComponent<SynapseChatWorldComponent>();
+            var worldComp = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
             if (worldComp == null) return;
 
             string idA = initiator.ThingID;
@@ -107,7 +107,7 @@ namespace RimSynapse.Chat.Patches
             }
 
             SynapseClient.ChatAsync(
-                RimSynapseChatMod.ModHandle,
+                RimSynapseConversationsMod.ModHandle,
                 apiMessages,
                 new ChatOptions { priority = 1, requestName = "Pawn-to-Pawn Chat Interaction" },
                 result =>
@@ -142,7 +142,7 @@ namespace RimSynapse.Chat.Patches
                             MoteMaker.ThrowText(initiator.DrawPos, initiator.Map, reply, 4f);
 
                             // Save message to short term history
-                            conversation.messages.Add(new SynapseChatMessage(initiator.ThingID, reply, Find.TickManager.TicksGame));
+                            conversation.messages.Add(new SynapseConversationMessage(initiator.ThingID, reply, Find.TickManager.TicksGame));
                             conversation.lastTick = Find.TickManager.TicksGame;
                             if (conversation.messages.Count > 10)
                             {

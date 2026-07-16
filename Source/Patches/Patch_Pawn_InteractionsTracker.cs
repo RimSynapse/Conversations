@@ -6,7 +6,7 @@ using Verse;
 using RimWorld;
 using RimSynapse.Comps;
 
-namespace RimSynapse.Chat.Patches
+namespace RimSynapse.Conversations.Patches
 {
     /// <summary>
     /// Harmony patch on Pawn_InteractionsTracker.TryInteractWith to intercept pawn-to-pawn social interactions

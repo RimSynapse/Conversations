@@ -464,11 +464,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "d:\\github\\RimSynapse-Chat\\Source\\RimSynapseChat.csproj",
-      "projectName": "RimSynapseChat",
-      "projectPath": "d:\\github\\RimSynapse-Chat\\Source\\RimSynapseChat.csproj",
+      "projectUniqueName": "d:\\github\\RimSynapse-Conversations\\Source\\RimSynapseConversations.csproj",
+      "projectName": "RimSynapseConversations",
+      "projectPath": "d:\\github\\RimSynapse-Conversations\\Source\\RimSynapseConversations.csproj",
       "packagesPath": "C:\\Users\\sealt\\.nuget\\packages\\",
-      "outputPath": "d:\\github\\RimSynapse-Chat\\Source\\obj\\",
+      "outputPath": "d:\\github\\RimSynapse-Conversations\\Source\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\sealt\\AppData\\Roaming\\NuGet\\NuGet.Config"

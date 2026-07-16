@@ -1,2 +1,3 @@
-# RimSynapse-Chat
-Chat Context with and between pawns that can effect relationships.
+# RimSynapse - Conversations
+
+Companion mod for RimSynapse. Allows colonists to converse dynamically using LLMs.

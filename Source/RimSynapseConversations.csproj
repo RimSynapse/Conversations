@@ -4,8 +4,8 @@
 
     <PropertyGroup>
         <TargetFramework>net472</TargetFramework>
-        <AssemblyName>RimSynapseChat</AssemblyName>
-        <RootNamespace>RimSynapse.Chat</RootNamespace>
+        <AssemblyName>RimSynapseConversations</AssemblyName>
+        <RootNamespace>RimSynapse.Conversations</RootNamespace>
         <LangVersion>9.0</LangVersion>
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
