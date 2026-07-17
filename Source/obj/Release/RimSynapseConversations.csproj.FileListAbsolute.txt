@@ -1,0 +1,6 @@
+d:\github\rimsynapse\Conversations\Assemblies\RimSynapseConversations.dll
+d:\github\rimsynapse\Conversations\Source\obj\Release\RimSynapseConversations.csproj.AssemblyReference.cache
+d:\github\rimsynapse\Conversations\Source\obj\Release\RimSynapseConversations.GeneratedMSBuildEditorConfig.editorconfig
+d:\github\rimsynapse\Conversations\Source\obj\Release\RimSynapseConversations.csproj.CoreCompileInputs.cache
+d:\github\rimsynapse\Conversations\Source\obj\Release\RimSynap.0C78C3B4.Up2Date
+d:\github\rimsynapse\Conversations\Source\obj\Release\RimSynapseConversations.dll
