@@ -10,3 +10,9 @@ d:\github\RimSynapse-Conversations\Source\obj\Debug\RimSynapseConversations.Gene
 d:\github\RimSynapse-Conversations\Source\obj\Debug\RimSynapseConversations.csproj.CoreCompileInputs.cache
 d:\github\RimSynapse-Conversations\Source\obj\Debug\RimSynap.0C78C3B4.Up2Date
 d:\github\RimSynapse-Conversations\Source\obj\Debug\RimSynapseConversations.dll
+d:\github\rimsynapse\Conversations\Assemblies\RimSynapseConversations.dll
+d:\github\rimsynapse\Conversations\Source\obj\Debug\RimSynapseConversations.csproj.AssemblyReference.cache
+d:\github\rimsynapse\Conversations\Source\obj\Debug\RimSynapseConversations.GeneratedMSBuildEditorConfig.editorconfig
+d:\github\rimsynapse\Conversations\Source\obj\Debug\RimSynapseConversations.csproj.CoreCompileInputs.cache
+d:\github\rimsynapse\Conversations\Source\obj\Debug\RimSynap.0C78C3B4.Up2Date
+d:\github\rimsynapse\Conversations\Source\obj\Debug\RimSynapseConversations.dll
