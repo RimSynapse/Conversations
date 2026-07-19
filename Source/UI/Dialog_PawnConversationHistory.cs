@@ -215,10 +215,10 @@ namespace RimSynapse.Conversations
 
                             // Draw Message Content
                             float textWidth = rightScrollWidth - 62f;
+                            Text.Font = GameFont.Small;
                             float textHeight = Text.CalcHeight(msg.message, textWidth);
                             Rect textRect = new Rect(52f, chatY + 22f, textWidth, textHeight);
 
-                            Text.Font = GameFont.Small;
                             GUI.color = new Color(0.92f, 0.92f, 0.95f);
                             Widgets.Label(textRect, msg.message);
 
@@ -349,10 +349,10 @@ namespace RimSynapse.Conversations
 
                         // Draw message content
                         float textWidth = rightScrollWidth - 62f;
+                        Text.Font = GameFont.Small;
                         float textHeight = Text.CalcHeight(reply, textWidth);
                         Rect textRect = new Rect(52f, chatY + 22f, textWidth, textHeight);
 
-                        Text.Font = GameFont.Small;
                         GUI.color = new Color(0.92f, 0.92f, 0.95f);
                         Widgets.Label(textRect, reply);
 
@@ -373,6 +373,8 @@ namespace RimSynapse.Conversations
 
         private float CalculateChatScrollHeight(List<SynapseConversationMessage> messages, float width, Pawn pawn)
         {
+            var originalFont = Text.Font;
+            Text.Font = GameFont.Small;
             float total = 10f;
             float textWidth = width - 62f;
             string lastDateStr = null;
@@ -389,6 +391,7 @@ namespace RimSynapse.Conversations
                 float entryHeight = Mathf.Max(32f, 22f + textHeight);
                 total += entryHeight + 16f;
             }
+            Text.Font = originalFont;
             return total;
         }
 

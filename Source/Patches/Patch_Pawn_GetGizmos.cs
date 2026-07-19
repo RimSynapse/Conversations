@@ -21,18 +21,48 @@ namespace RimSynapse.Conversations.Patches
 
             if (!(__instance is Pawn pawn)) yield break;
             if (Current.ProgramState != ProgramState.Playing || Find.World == null) yield break;
-            if (pawn.Faction != Faction.OfPlayer || !pawn.RaceProps.Humanlike) yield break;
+            if (!pawn.RaceProps.Humanlike || pawn.Dead) yield break;
 
-            yield return new Command_Action
+            var coreComp = pawn.TryGetComp<RimSynapse.Comps.SynapseCorePawnComp>();
+            bool isResident = coreComp != null && coreComp.isResident;
+
+            if (pawn.Faction == Faction.OfPlayer)
             {
-                defaultLabel = "Dialogue History",
-                defaultDesc = "View the history of statements overheard or spoken by this colonist.",
-                icon = ContentFinder<Texture2D>.Get("UI/Commands/ChatHistoryIcon", false) ?? BaseContent.BadTex,
-                action = () =>
+                yield return new Command_Action
                 {
-                    Find.WindowStack.Add(new Dialog_PawnConversationHistory(pawn));
-                }
-            };
+                    defaultLabel = "Dialogue History",
+                    defaultDesc = "View the history of statements overheard or spoken by this colonist.",
+                    icon = ContentFinder<Texture2D>.Get("UI/Commands/ChatHistoryIcon", false) ?? BaseContent.BadTex,
+                    action = () =>
+                    {
+                        Find.WindowStack.Add(new Dialog_PawnConversationHistory(pawn));
+                    }
+                };
+            }
+            else if (isResident)
+            {
+                yield return new Command_Action
+                {
+                    defaultLabel = "Dialogue History",
+                    defaultDesc = "View the history of statements overheard or spoken by this resident.",
+                    icon = ContentFinder<Texture2D>.Get("UI/Commands/ChatHistoryIcon", false) ?? BaseContent.BadTex,
+                    action = () =>
+                    {
+                        Find.WindowStack.Add(new Dialog_PawnConversationHistory(pawn));
+                    }
+                };
+
+                yield return new Command_Action
+                {
+                    defaultLabel = "Attempt Recruitment",
+                    defaultDesc = "Send a colonist to attempt to recruit this resident into your faction.",
+                    icon = TexCommand.GatherSpotActive,
+                    action = () =>
+                    {
+                        Find.WindowStack.Add(new Dialog_AttemptRecruitment(pawn));
+                    }
+                };
+            }
         }
     }
 }
