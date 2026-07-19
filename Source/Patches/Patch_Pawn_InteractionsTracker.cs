@@ -18,48 +18,28 @@ namespace RimSynapse.Conversations.Patches
     [HarmonyPatch(typeof(Pawn_InteractionsTracker), nameof(Pawn_InteractionsTracker.TryInteractWith))]
     public static partial class Patch_Pawn_InteractionsTracker_TryInteractWith
     {
-        private static bool s_AbortedByPsychology = false;
-
         public static bool Prefix(Pawn_InteractionsTracker __instance, Pawn recipient, InteractionDef intDef, ref bool __result)
         {
-            s_AbortedByPsychology = false;
-
-            if (Current.ProgramState != ProgramState.Playing || Find.World == null) return true;
-            if (Find.Storyteller?.def?.defName != "Synapse") return true;
-
-            // Fetch private initiator pawn field via Traverse
-            Pawn initiator = Traverse.Create(__instance).Field("pawn").GetValue<Pawn>();
-            if (initiator == null || recipient == null || !initiator.RaceProps.Humanlike || !recipient.RaceProps.Humanlike) return true;
-            if (!initiator.Spawned || !recipient.Spawned) return true;
-
-            // 1. Psychological Initiation Check
-            float initChance = CalculateInitiationChance(initiator, recipient);
-            if (Rand.Value > initChance)
-            {
-                s_AbortedByPsychology = true;
-                __result = false;
-                return false; // Block vanilla interaction
-            }
-
-            // 2. Psychological Response Check
-            float respChance = CalculateResponseChance(initiator, recipient, intDef);
-            if (Rand.Value > respChance)
-            {
-                TriggerNonResponseEffects(initiator, recipient);
-                s_AbortedByPsychology = true;
-                __result = false;
-                return false; // Block vanilla interaction
-            }
-
-            return true; // Let vanilla proceed, Postfix will handle LLM dialogue
+            return true; // Let vanilla proceed, Postfix will handle response checks
         }
 
         public static void Postfix(Pawn_InteractionsTracker __instance, Pawn recipient, InteractionDef intDef, bool __result)
         {
-            if (s_AbortedByPsychology || !__result) return;
+            if (!__result) return;
+            if (Current.ProgramState != ProgramState.Playing || Find.World == null) return;
+            if (Find.Storyteller?.def?.defName != "Synapse") return;
 
             Pawn initiator = Traverse.Create(__instance).Field("pawn").GetValue<Pawn>();
-            if (initiator == null || recipient == null) return;
+            if (initiator == null || recipient == null || !initiator.RaceProps.Humanlike || !recipient.RaceProps.Humanlike) return;
+            if (!initiator.Spawned || !recipient.Spawned) return;
+
+            // Psychological Response Check
+            float respChance = CalculateResponseChance(initiator, recipient, intDef);
+            if (Rand.Value > respChance)
+            {
+                TriggerNonResponseEffects(initiator, recipient);
+                return; // Silent/Ellipses bubble, no LLM dialogue
+            }
 
             // Trigger AI dialogue generation
             TriggerLlmDialogue(initiator, recipient, intDef);

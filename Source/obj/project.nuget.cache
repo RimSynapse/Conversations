@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "W9VxQ75rKK8=",
+  "dgSpecHash": "e33quqasgU8=",
   "success": true,
-  "projectFilePath": "d:\\github\\rimsynapse\\Conversations\\Source\\RimSynapseConversations.csproj",
+  "projectFilePath": "D:\\github\\rimsynapse\\Conversations\\Source\\RimSynapseConversations.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\sealt\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
     "C:\\Users\\sealt\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net472\\1.0.3\\microsoft.netframework.referenceassemblies.net472.1.0.3.nupkg.sha512",

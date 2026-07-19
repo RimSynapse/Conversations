@@ -172,8 +172,8 @@ namespace RimSynapse.Conversations.Patches
                     tags = new List<string> { "conversation", recipient.ThingID },
                     absTick = Utils.SynapseDateHelper.GameTickToAbsTick(Find.TickManager.TicksGame),
                     gameTick = Find.TickManager.TicksGame,
-                    weight = 0.5f,
-                    baseWeight = 0.5f,
+                    weight = 0.15f,
+                    baseWeight = 0.15f,
                     decayRate = 0.05f
                 });
             }
@@ -189,8 +189,8 @@ namespace RimSynapse.Conversations.Patches
                     tags = new List<string> { "conversation", initiator.ThingID },
                     absTick = Utils.SynapseDateHelper.GameTickToAbsTick(Find.TickManager.TicksGame),
                     gameTick = Find.TickManager.TicksGame,
-                    weight = 0.5f,
-                    baseWeight = 0.5f,
+                    weight = 0.15f,
+                    baseWeight = 0.15f,
                     decayRate = 0.05f
                 });
             }
@@ -222,8 +222,8 @@ namespace RimSynapse.Conversations.Patches
                         tags = new List<string> { "overheard", initiator.ThingID, recipient.ThingID },
                         absTick = Utils.SynapseDateHelper.GameTickToAbsTick(Find.TickManager.TicksGame),
                         gameTick = Find.TickManager.TicksGame,
-                        weight = 0.3f,
-                        baseWeight = 0.3f,
+                        weight = 0.10f,
+                        baseWeight = 0.10f,
                         decayRate = 0.05f
                     });
                 }
