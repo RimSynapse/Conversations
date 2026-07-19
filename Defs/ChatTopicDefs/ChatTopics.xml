@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+  <!-- Chitchat Topics -->
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_Weather</defName>
+    <label>weather</label>
+    <topicName>Weather</topicName>
+    <isChitchat>true</isChitchat>
+    <isDeepTalk>false</isDeepTalk>
+    <prompts>
+      <li>the local weather conditions and temperature changes</li>
+      <li>whether they prefer sunny, rainy, or snowy days</li>
+      <li>how the current season is affecting their mood</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_DailyRoutine</defName>
+    <label>daily routine</label>
+    <topicName>Daily Routine</topicName>
+    <isChitchat>true</isChitchat>
+    <isDeepTalk>false</isDeepTalk>
+    <prompts>
+      <li>what jobs they completed today and their work preferences</li>
+      <li>how tired or rested they feel</li>
+      <li>the quality of their meals or lodging</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_Gossip</defName>
+    <label>gossip</label>
+    <topicName>Gossip</topicName>
+    <isChitchat>true</isChitchat>
+    <isDeepTalk>false</isDeepTalk>
+    <prompts>
+      <li>recent events or things observed around the colony</li>
+      <li>gossip about other colonists' quirks and habits</li>
+      <li>minor rumors or stories they heard</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <!-- Deep Talk Topics -->
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_Backstories</defName>
+    <label>backstories</label>
+    <topicName>Backstories</topicName>
+    <isChitchat>false</isChitchat>
+    <isDeepTalk>true</isDeepTalk>
+    <prompts>
+      <li>their childhood experiences and upbringing</li>
+      <li>what they did before arriving at the colony</li>
+      <li>how their past life shapes their current values</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_Memories</defName>
+    <label>memories</label>
+    <topicName>Memories</topicName>
+    <isChitchat>false</isChitchat>
+    <isDeepTalk>true</isDeepTalk>
+    <prompts>
+      <li>significant recent memories and emotional experiences</li>
+      <li>how they felt about recent losses, achievements, or battles</li>
+      <li>their view of the colony's history and struggles</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_DreamsFears</defName>
+    <label>dreams and fears</label>
+    <topicName>Dreams and Fears</topicName>
+    <isChitchat>false</isChitchat>
+    <isDeepTalk>true</isDeepTalk>
+    <prompts>
+      <li>their hopes for the future and personal goals</li>
+      <li>what scares them the most about surviving on this planet</li>
+      <li>their deepest regrets or unresolved burdens</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+</Defs>

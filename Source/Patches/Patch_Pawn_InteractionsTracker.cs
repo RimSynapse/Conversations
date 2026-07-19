@@ -27,7 +27,6 @@ namespace RimSynapse.Conversations.Patches
         {
             if (!__result) return;
             if (Current.ProgramState != ProgramState.Playing || Find.World == null) return;
-            if (Find.Storyteller?.def?.defName != "Synapse") return;
 
             Pawn initiator = Traverse.Create(__instance).Field("pawn").GetValue<Pawn>();
             if (initiator == null || recipient == null || !initiator.RaceProps.Humanlike || !recipient.RaceProps.Humanlike) return;

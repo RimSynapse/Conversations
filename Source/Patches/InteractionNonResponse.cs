@@ -14,8 +14,8 @@ namespace RimSynapse.Conversations.Patches
     {
         private static void TriggerNonResponseEffects(Pawn initiator, Pawn recipient)
         {
-            // Throw visual ellipses indicators
-            MoteMaker.ThrowText(recipient.DrawPos, recipient.Map, "...", 3f);
+            // Throw visual ellipses speech bubble
+            UI.SpeechBubbleManager.AddBubble(recipient, "...", 3.0f);
 
             bool isInsulting = initiator.InMentalState && 
                                initiator.MentalState.def != null &&
@@ -41,9 +41,9 @@ namespace RimSynapse.Conversations.Patches
                         tags = new List<string> { "non_response", recipient.ThingID },
                         absTick = Utils.SynapseDateHelper.GameTickToAbsTick(Find.TickManager.TicksGame),
                         gameTick = Find.TickManager.TicksGame,
-                        weight = 0.15f,
-                        baseWeight = 0.15f,
-                        decayRate = 0.05f
+                        weight = 0.10f,
+                        baseWeight = 0.10f,
+                        decayRate = 0.10f
                     });
                 }
             }
@@ -69,8 +69,8 @@ namespace RimSynapse.Conversations.Patches
                             tags = new List<string> { "non_response", recipient.ThingID },
                             absTick = Utils.SynapseDateHelper.GameTickToAbsTick(Find.TickManager.TicksGame),
                             gameTick = Find.TickManager.TicksGame,
-                            weight = 0.10f,
-                            baseWeight = 0.10f,
+                            weight = 0.05f,
+                            baseWeight = 0.05f,
                             decayRate = 0.05f
                         });
                     }
@@ -94,9 +94,9 @@ namespace RimSynapse.Conversations.Patches
                             tags = new List<string> { "non_response", recipient.ThingID },
                             absTick = Utils.SynapseDateHelper.GameTickToAbsTick(Find.TickManager.TicksGame),
                             gameTick = Find.TickManager.TicksGame,
-                            weight = 0.08f,
-                            baseWeight = 0.08f,
-                            decayRate = 0.05f
+                            weight = 0.03f,
+                            baseWeight = 0.03f,
+                            decayRate = 0.03f
                         });
                     }
                 }
