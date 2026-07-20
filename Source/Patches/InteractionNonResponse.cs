@@ -14,9 +14,6 @@ namespace RimSynapse.Conversations.Patches
     {
         private static void TriggerNonResponseEffects(Pawn initiator, Pawn recipient)
         {
-            // Throw visual ellipses speech bubble
-            UI.SpeechBubbleManager.AddBubble(recipient, "...", 3.0f);
-
             bool isInsulting = initiator.InMentalState && 
                                initiator.MentalState.def != null &&
                                initiator.MentalState.def.defName.IndexOf("insulting", System.StringComparison.OrdinalIgnoreCase) >= 0;

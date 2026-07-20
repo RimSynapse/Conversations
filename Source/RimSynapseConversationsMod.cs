@@ -45,6 +45,24 @@ namespace RimSynapse.Conversations
                 listingStandard.Gap(12f);
             }
 
+            listingStandard.CheckboxLabeled(
+                "Enable Experimental Conversation Caching",
+                ref Settings.enablePreGeneratedCaching,
+                "Pre-generates social conversations in the background to eliminate response delay."
+            );
+            listingStandard.Gap(12f);
+
+            listingStandard.Label("Speech Bubble Aesthetics:");
+            listingStandard.Label($"Background Red: {Settings.bubbleRed:F2}");
+            Settings.bubbleRed = listingStandard.Slider(Settings.bubbleRed, 0f, 1f);
+            listingStandard.Label($"Background Green: {Settings.bubbleGreen:F2}");
+            Settings.bubbleGreen = listingStandard.Slider(Settings.bubbleGreen, 0f, 1f);
+            listingStandard.Label($"Background Blue: {Settings.bubbleBlue:F2}");
+            Settings.bubbleBlue = listingStandard.Slider(Settings.bubbleBlue, 0f, 1f);
+            listingStandard.Label($"Background Transparency (Alpha): {Settings.bubbleAlpha:F2}");
+            Settings.bubbleAlpha = listingStandard.Slider(Settings.bubbleAlpha, 0.1f, 1f);
+            listingStandard.Gap(12f);
+
             listingStandard.Label("Adjust Chat Topics:");
             var allTopics = DefDatabase<ChatTopicDef>.AllDefsListForReading;
             if (allTopics != null && allTopics.Count > 0)

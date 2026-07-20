@@ -189,9 +189,23 @@ namespace RimSynapse.Conversations
                 {
                     resident.relations.OpinionOf(recruiter);
                     // Add a negative memory/relation change using RefusedMyProposal (which is a Thought_MemorySocial)
-                    Thought_MemorySocial socialThought = (Thought_MemorySocial)ThoughtMaker.MakeThought(DefDatabase<ThoughtDef>.GetNamed("RefusedMyProposal"));
-                    socialThought.opinionOffset = -15;
-                    resident.needs?.mood?.thoughts?.memories?.TryGainMemory(socialThought, recruiter);
+                    var thoughtDef = DefDatabase<ThoughtDef>.GetNamed("RefusedMyProposal", false);
+                    if (thoughtDef != null)
+                    {
+                        Thought_MemorySocial socialThought = (Thought_MemorySocial)ThoughtMaker.MakeThought(thoughtDef);
+                        socialThought.opinionOffset = -15;
+                        resident.needs?.mood?.thoughts?.memories?.TryGainMemory(socialThought, recruiter);
+                    }
+                    else
+                    {
+                        var fallbackDef = DefDatabase<ThoughtDef>.GetNamed("Slighted", false);
+                        if (fallbackDef != null)
+                        {
+                            Thought_MemorySocial socialThought = (Thought_MemorySocial)ThoughtMaker.MakeThought(fallbackDef);
+                            socialThought.opinionOffset = -15;
+                            resident.needs?.mood?.thoughts?.memories?.TryGainMemory(socialThought, recruiter);
+                        }
+                    }
                 }
 
                 // Check for critical failure (e.g. rolled near 1.0 or very low chance)

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+  <JobDef>
+    <defName>SynapseAttemptRecruit</defName>
+    <driverClass>RimSynapse.Conversations.JobDriver_SynapseAttemptRecruit</driverClass>
+    <reportString>attempting to recruit TargetA.</reportString>
+    <casualInterruptible>false</casualInterruptible>
+  </JobDef>
+</Defs>

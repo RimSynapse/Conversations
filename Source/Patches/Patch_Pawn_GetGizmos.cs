@@ -51,17 +51,6 @@ namespace RimSynapse.Conversations.Patches
                         Find.WindowStack.Add(new Dialog_PawnConversationHistory(pawn));
                     }
                 };
-
-                yield return new Command_Action
-                {
-                    defaultLabel = "Attempt Recruitment",
-                    defaultDesc = "Send a colonist to attempt to recruit this resident into your faction.",
-                    icon = TexCommand.GatherSpotActive,
-                    action = () =>
-                    {
-                        Find.WindowStack.Add(new Dialog_AttemptRecruitment(pawn));
-                    }
-                };
             }
         }
     }
