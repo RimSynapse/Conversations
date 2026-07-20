@@ -15,10 +15,18 @@ Bring the social life of your colony to life! RimSynapse Conversations intercept
 
 ---
 
-[h2]Changelog (v0.5.0)[/h2]
+[h2]Changelog (v0.5.1)[/h2]
 [list]
-[*] [b]UI Refinements:[/b] Fixed timing offsets for simultaneous conversations.
-[*] [b]1.6 Stability Updates:[/b] Optimizations to support RimWorld 1.6 tick structures.
+[*] [b]NEW: Visual Speech Bubbles:[/b] Displays dynamic speech bubbles above talking colonists at normal speed, matching standard RimWorld UI colors and borders.
+[*] [b]NEW: Voice Projection Shifting:[/b] The bubble shifts to the left or right towards the listener, and the pointer tail anchors directly at the speaker's head.
+[*] [b]NEW: Environmental Chitchat Triggers:[/b] Talkative pawns will comment dynamically on freezing cold (freezer) or dim lighting (darkness) when entering them.
+[*] [b]NEW: Settings Customization:[/b] Configurable background color and transparency sliders for speech bubbles.
+[*] [b]NEW: Persuasion & Recruitment:[/b] Attempt recruitment on neutral resident NPCs via inspect-pane gizmo and three-state social check (Trust, Familiarity, Opinion).
+[*] [b]Chitchat Latency Cache:[/b] Pre-generates chats in-memory to eliminate dialogue lag at normal speeds.
+[*] [b]Sequential Generation:[/b] Dialogue is generated one-turn-at-a-time (initiator statement, recipient response) rather than 5 turns bulked.
+[*] [b]Continuation Rebalancing:[/b] Reduced continuation chance to 20% to prevent topic overlapping.
+[*] [b]Cleaned Up Non-Responses:[/b] Removed ellipsis ("...") speech bubbles from non-response interactions.
+[*] [b]UI Layout Fixes:[/b] Fixed text clipping in dialogue history logs and added Discord-style layouts.
 [/list]
 
 ---
