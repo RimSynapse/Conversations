@@ -52,6 +52,18 @@ namespace RimSynapse.Conversations
             );
             listingStandard.Gap(12f);
 
+            Settings.dialogueCooldownHours = listingStandard.SliderLabeled(
+                Settings.dialogueCooldownHours <= 0f
+                    ? "AI Conversation Cooldown: Off (every vanilla interaction)"
+                    : $"AI Conversation Cooldown: {Settings.dialogueCooldownHours:F1} in-game hours",
+                Settings.dialogueCooldownHours, 0f, 12f,
+                0.5f,
+                "Minimum in-game hours before the same pair of pawns will generate another AI conversation. " +
+                "Vanilla social interactions fire constantly; raising this reduces chatter and prevents short-term " +
+                "social memories from piling up faster than they decay. Set to 0 for legacy behavior (a dialogue on every interaction)."
+            );
+            listingStandard.Gap(12f);
+
             listingStandard.Label("Speech Bubble Aesthetics:");
             listingStandard.Label($"Background Red: {Settings.bubbleRed:F2}");
             Settings.bubbleRed = listingStandard.Slider(Settings.bubbleRed, 0f, 1f);
