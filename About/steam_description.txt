@@ -1,3 +1,6 @@
+[b]Discord Community:[/b] [url=https://discord.gg/eVBebZ2N9s]https://discord.gg/eVBebZ2N9s[/url]
+[b]Version:[/b] v0.5.1 (Target: RimWorld 1.6)
+
 [h1]RimSynapse - Conversations[/h1]
 [b]Dynamic, memory-aware, and trait-influenced text conversations between your colonists using Large Language Models.[/b]
 
@@ -21,7 +24,7 @@ Bring the social life of your colony to life! RimSynapse Conversations intercept
 [*] [b]NEW: Voice Projection Shifting:[/b] The bubble shifts to the left or right towards the listener, and the pointer tail anchors directly at the speaker's head.
 [*] [b]NEW: Environmental Chitchat Triggers:[/b] Talkative pawns will comment dynamically on freezing cold (freezer) or dim lighting (darkness) when entering them.
 [*] [b]NEW: Settings Customization:[/b] Configurable background color and transparency sliders for speech bubbles.
-[*] [b]NEW: Persuasion & Recruitment:[/b] Attempt recruitment on neutral resident NPCs via inspect-pane gizmo and three-state social check (Trust, Familiarity, Opinion).
+[*] [b]NEW: Persuasion and Recruitment:[/b] Attempt recruitment on neutral resident NPCs via inspect-pane gizmo and three-state social check (Trust, Familiarity, Opinion).
 [*] [b]Chitchat Latency Cache:[/b] Pre-generates chats in-memory to eliminate dialogue lag at normal speeds.
 [*] [b]Sequential Generation:[/b] Dialogue is generated one-turn-at-a-time (initiator statement, recipient response) rather than 5 turns bulked.
 [*] [b]Continuation Rebalancing:[/b] Reduced continuation chance to 20% to prevent topic overlapping.
@@ -50,6 +53,6 @@ Bring the social life of your colony to life! RimSynapse Conversations intercept
 
 ---
 
-[h2]Open Source & Support[/h2]
+[h2]Open Source and Support[/h2]
 GitHub: [url]https://github.com/RimSynapse/Conversations[/url]
 Buy me a coffee: [url]https://buymeacoffee.com/archdukejim[/url]
