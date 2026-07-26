@@ -2,6 +2,7 @@
 [b]Version:[/b] v0.5.2 (Target: RimWorld 1.6)
 
 [h1]RimSynapse - Conversations[/h1]
+[b][url=https://github.com/RimSynapse/Conversations/wiki]Official Wiki and Documentation[/url][/b]
 [b]Dynamic, memory-aware, and trait-influenced text conversations between your colonists using Large Language Models.[/b]
 
 Bring the social life of your colony to life! RimSynapse Conversations intercepts pawn interactions and translates them into actual written dialogue. What they say is directly shaped by their personal histories, traits, relationships, and current traumas.
