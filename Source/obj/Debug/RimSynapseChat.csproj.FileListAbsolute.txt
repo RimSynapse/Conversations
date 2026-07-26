@@ -1,6 +1,0 @@
-d:\github\RimSynapse-Chat\Source\obj\Debug\RimSynapseChat.csproj.AssemblyReference.cache
-d:\github\RimSynapse-Chat\Source\obj\Debug\RimSynapseChat.GeneratedMSBuildEditorConfig.editorconfig
-d:\github\RimSynapse-Chat\Source\obj\Debug\RimSynapseChat.csproj.CoreCompileInputs.cache
-d:\github\RimSynapse-Chat\Assemblies\RimSynapseChat.dll
-d:\github\RimSynapse-Chat\Source\obj\Debug\RimSynap.F31FE10A.Up2Date
-d:\github\RimSynapse-Chat\Source\obj\Debug\RimSynapseChat.dll

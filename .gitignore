@@ -1,0 +1,4 @@
+
+# MSBuild intermediates
+Source/obj/
+Source/bin/
