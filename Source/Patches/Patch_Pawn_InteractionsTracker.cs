@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using UnityEngine;
@@ -18,50 +19,62 @@ namespace RimSynapse.Conversations.Patches
     [HarmonyPatch(typeof(Pawn_InteractionsTracker), nameof(Pawn_InteractionsTracker.TryInteractWith))]
     public static partial class Patch_Pawn_InteractionsTracker_TryInteractWith
     {
-        private static bool s_AbortedByPsychology = false;
+        // Per-pair throttle. Vanilla fires social interactions between the same two pawns
+        // extremely frequently; we hook that as the trigger but only "upgrade" it into a
+        // Synapse reaction (LLM dialogue or a silent bubble) once per cooldown window so that
+        // chatter — and the social memories each conversation plants — stays at a sane cadence.
+        private static readonly Dictionary<string, int> lastDialogueTickByPair = new Dictionary<string, int>();
+
+        private static string PairKey(Pawn a, Pawn b)
+        {
+            string ida = a.ThingID;
+            string idb = b.ThingID;
+            return string.CompareOrdinal(ida, idb) <= 0 ? ida + "|" + idb : idb + "|" + ida;
+        }
 
         public static bool Prefix(Pawn_InteractionsTracker __instance, Pawn recipient, InteractionDef intDef, ref bool __result)
         {
-            s_AbortedByPsychology = false;
-
-            if (Current.ProgramState != ProgramState.Playing || Find.World == null) return true;
-            if (Find.Storyteller?.def?.defName != "Synapse") return true;
-
-            // Fetch private initiator pawn field via Traverse
-            Pawn initiator = Traverse.Create(__instance).Field("pawn").GetValue<Pawn>();
-            if (initiator == null || recipient == null || !initiator.RaceProps.Humanlike || !recipient.RaceProps.Humanlike) return true;
-            if (!initiator.Spawned || !recipient.Spawned) return true;
-
-            // 1. Psychological Initiation Check
-            float initChance = CalculateInitiationChance(initiator, recipient);
-            if (Rand.Value > initChance)
-            {
-                s_AbortedByPsychology = true;
-                __result = false;
-                return false; // Block vanilla interaction
-            }
-
-            // 2. Psychological Response Check
-            float respChance = CalculateResponseChance(initiator, recipient, intDef);
-            if (Rand.Value > respChance)
-            {
-                TriggerNonResponseEffects(initiator, recipient);
-                s_AbortedByPsychology = true;
-                __result = false;
-                return false; // Block vanilla interaction
-            }
-
-            return true; // Let vanilla proceed, Postfix will handle LLM dialogue
+            return true; // Let vanilla proceed, Postfix will handle response checks
         }
 
         public static void Postfix(Pawn_InteractionsTracker __instance, Pawn recipient, InteractionDef intDef, bool __result)
         {
-            if (s_AbortedByPsychology || !__result) return;
+            if (!__result) return;
+            if (Current.ProgramState != ProgramState.Playing || Find.World == null) return;
 
             Pawn initiator = Traverse.Create(__instance).Field("pawn").GetValue<Pawn>();
-            if (initiator == null || recipient == null) return;
+            if (initiator == null || recipient == null || !initiator.RaceProps.Humanlike || !recipient.RaceProps.Humanlike) return;
+            if (!initiator.Spawned || !recipient.Spawned) return;
 
-            // Trigger AI dialogue generation
+            // Throttle check: skip entirely if this pair reacted too recently.
+            int nowTick = Find.TickManager.TicksGame;
+            float cooldownHours = RimSynapseConversationsMod.Settings?.dialogueCooldownHours ?? 1f;
+            int cooldownTicks = Mathf.Max(0, Mathf.RoundToInt(cooldownHours * 2500f));
+            string pairKey = PairKey(initiator, recipient);
+            if (cooldownTicks > 0
+                && lastDialogueTickByPair.TryGetValue(pairKey, out int lastReactTick)
+                && (nowTick - lastReactTick) < cooldownTicks)
+            {
+                return; // Too soon since this pair last reacted
+            }
+
+            // Personality/opinion-based initiation gate (introverts, melancholic temperaments,
+            // and pawns who dislike the recipient engage less often). If they decline this time
+            // we do NOT consume the cooldown window, so a later interaction can still trigger.
+            float initChance = CalculateInitiationChance(initiator, recipient);
+            if (Rand.Value > initChance) return;
+
+            // Psychological Response Check
+            float respChance = CalculateResponseChance(initiator, recipient, intDef);
+            if (Rand.Value > respChance)
+            {
+                lastDialogueTickByPair[pairKey] = nowTick; // silent reaction still consumes the window
+                TriggerNonResponseEffects(initiator, recipient);
+                return; // Silent/Ellipses bubble, no LLM dialogue
+            }
+
+            // Trigger AI dialogue generation (mark the window synchronously since generation is async).
+            lastDialogueTickByPair[pairKey] = nowTick;
             TriggerLlmDialogue(initiator, recipient, intDef);
         }
 

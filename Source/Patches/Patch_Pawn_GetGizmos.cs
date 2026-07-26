@@ -9,30 +9,49 @@ namespace RimSynapse.Conversations.Patches
     /// <summary>
     /// Harmony patch on Pawn.GetGizmos to display a "Chat History" button on colonist inspect panes.
     /// </summary>
-    [HarmonyPatch(typeof(Pawn), nameof(Pawn.GetGizmos))]
+    [HarmonyPatch(typeof(ThingWithComps), nameof(ThingWithComps.GetGizmos))]
     public static class Patch_Pawn_GetGizmos
     {
-        public static IEnumerable<Gizmo> Postfix(IEnumerable<Gizmo> __result, Pawn __instance)
+        public static IEnumerable<Gizmo> Postfix(IEnumerable<Gizmo> __result, ThingWithComps __instance)
         {
             foreach (var g in __result)
             {
                 yield return g;
             }
 
+            if (!(__instance is Pawn pawn)) yield break;
             if (Current.ProgramState != ProgramState.Playing || Find.World == null) yield break;
-            if (Find.Storyteller?.def?.defName != "Synapse") yield break;
-            if (__instance.Faction != Faction.OfPlayer || !__instance.RaceProps.Humanlike) yield break;
+            if (!pawn.RaceProps.Humanlike || pawn.Dead) yield break;
 
-            yield return new Command_Action
+            var coreComp = pawn.TryGetComp<RimSynapse.Comps.SynapseCorePawnComp>();
+            bool isResident = coreComp != null && coreComp.isResident;
+
+            if (pawn.Faction == Faction.OfPlayer)
             {
-                defaultLabel = "Chat History",
-                defaultDesc = "View this pawn's short-term conversation logs with other colonists.",
-                icon = ContentFinder<Texture2D>.Get("UI/Commands/ChatHistoryIcon", false) ?? BaseContent.BadTex,
-                action = () =>
+                yield return new Command_Action
                 {
-                    Find.WindowStack.Add(new Dialog_PawnConversationHistory(__instance));
-                }
-            };
+                    defaultLabel = "Dialogue History",
+                    defaultDesc = "View the history of statements overheard or spoken by this colonist.",
+                    icon = ContentFinder<Texture2D>.Get("UI/Commands/ChatHistoryIcon", false) ?? BaseContent.BadTex,
+                    action = () =>
+                    {
+                        Find.WindowStack.Add(new Dialog_PawnConversationHistory(pawn));
+                    }
+                };
+            }
+            else if (isResident)
+            {
+                yield return new Command_Action
+                {
+                    defaultLabel = "Dialogue History",
+                    defaultDesc = "View the history of statements overheard or spoken by this resident.",
+                    icon = ContentFinder<Texture2D>.Get("UI/Commands/ChatHistoryIcon", false) ?? BaseContent.BadTex,
+                    action = () =>
+                    {
+                        Find.WindowStack.Add(new Dialog_PawnConversationHistory(pawn));
+                    }
+                };
+            }
         }
     }
 }

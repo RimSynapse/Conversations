@@ -1,12 +1,56 @@
+[b]Discord Community:[/b] [url=https://discord.gg/eVBebZ2N9s]https://discord.gg/eVBebZ2N9s[/url]
+[b]Version:[/b] v0.5.2 (Target: RimWorld 1.6)
+
 [h1]RimSynapse - Conversations[/h1]
-[b]📚 [url=https://github.com/RimSynapse/Conversations/wiki]Official Wiki and Documentation[/url][/b]
+[b]Dynamic, memory-aware, and trait-influenced text conversations between your colonists using Large Language Models.[/b]
 
-[b]Companion Mod for RimSynapse.[/b]
-Allows colonists to converse dynamically using LLMs.
+Bring the social life of your colony to life! RimSynapse Conversations intercepts pawn interactions and translates them into actual written dialogue. What they say is directly shaped by their personal histories, traits, relationships, and current traumas.
 
-[h2]Changelog[/h2]
-[b]v0.4.0[/b]
-- Updated to support RimSynapse Core v0.4.0 (Multi-provider routing and Image generation).
+---
+
+[h2]Key Features[/h2]
+[list]
+[*] [b]Dynamic Dialogue Generation:[/b] Read actual conversations between pawns as they socialize, work, or fight.
+[*] [b]Psychological Integration:[/b] Conversing pawns will naturally bring up their core memories, trust levels, and traumas in their chats. (Requires RimSynapse - Psychology)
+[*] [b]Expansion Dialects:[/b] Support for unique dialogue flavors, including psycast interjections, religious debates, and paranoid void whispers.
+[*] [b]UI Log Viewer:[/b] Browse recent chatter and browse conversation histories for each pawn.
+[/list]
+
+---
+
+[h2]Roadmap[/h2]
+[list]
+[*] [b]0.6 - Agent and Tool Foundation:[/b] An in-game agent that plans and carries out multi-step actions on its own, backed by a growing library of tools it can query for colony, faction and world state.
+[*] [b]0.7 - Logic Externalization:[/b] Retiring hardcoded thresholds so the storyteller reasons about your colony's situation instead of following fixed rules.
+[*] [b]0.8 - Emergent Systems and Content:[/b] Faction archetypes for each DLC, caravans that travel the world map, settlement crises, faction capitals and travelling leaders, and richer colonist social dynamics.
+[/list]
+These ship when they are ready - no dates.
+
+---
+
+[h2]Changelog (v0.5.2)[/h2]
+[list]
+[*] [b]Maintenance release:[/b] No gameplay changes. Version aligned with the rest of the RimSynapse suite, which carries fixes in Core and Psychology.
+[*] [b]Licence:[/b] Now PolyForm Noncommercial 1.0.0. Free to use, modify and share for any noncommercial purpose.
+[/list]
+
+---
+
+[h2]Changelog (v0.5.1)[/h2]
+[list]
+[*] [b]NEW: Visual Speech Bubbles:[/b] Displays dynamic speech bubbles above talking colonists at normal speed, matching standard RimWorld UI colors and borders.
+[*] [b]NEW: Voice Projection Shifting:[/b] The bubble shifts to the left or right towards the listener, and the pointer tail anchors directly at the speaker's head.
+[*] [b]NEW: Environmental Chitchat Triggers:[/b] Talkative pawns will comment dynamically on freezing cold (freezer) or dim lighting (darkness) when entering them.
+[*] [b]NEW: Settings Customization:[/b] Configurable background color and transparency sliders for speech bubbles.
+[*] [b]NEW: Persuasion and Recruitment:[/b] Attempt recruitment on neutral resident NPCs via inspect-pane gizmo and three-state social check (Trust, Familiarity, Opinion).
+[*] [b]Chitchat Latency Cache:[/b] Pre-generates chats in-memory to eliminate dialogue lag at normal speeds.
+[*] [b]Sequential Generation:[/b] Dialogue is generated one-turn-at-a-time (initiator statement, recipient response) rather than 5 turns bulked.
+[*] [b]Continuation Rebalancing:[/b] Reduced continuation chance to 20% to prevent topic overlapping.
+[*] [b]Cleaned Up Non-Responses:[/b] Removed ellipsis ("...") speech bubbles from non-response interactions.
+[*] [b]UI Layout Fixes:[/b] Fixed text clipping in dialogue history logs and added Discord-style layouts.
+[/list]
+
+---
 
 [h2]Compatibility Matrix[/h2]
 [list]
@@ -14,10 +58,20 @@ Allows colonists to converse dynamically using LLMs.
 [*] [b]Ideology DLC:[/b] Compatible and Optional. Enables faith debates and active proselytizing.
 [*] [b]Biotech DLC:[/b] Compatible and Optional. Enables xenotype dialects and mechanitor comms.
 [*] [b]Anomaly DLC:[/b] Compatible and Optional. Enables paranoid void whispers.
-[*] [b]RimSynapse - Psychology:[/b] Compatible and Optional. Colonists will naturally bring up their deep core memories, traumas, and trust levels during everyday conversations.
+[*] [b]RimSynapse - Psychology:[/b] Highly Recommended. Colonists will naturally bring up their deep core memories, traumas, and trust levels during everyday conversations.
 [/list]
+
+---
 
 [h2]Requirements[/h2]
 [list]
-[*] [b]RimSynapse - Core[/b] (Must be loaded before this mod)
+[*] RimSynapse - Core (Must be loaded before this mod)
+[*] Harmony
 [/list]
+
+---
+
+[h2]Source Code and Support[/h2]
+GitHub: [url]https://github.com/RimSynapse/Conversations[/url]
+Licence: [url=https://polyformproject.org/licenses/noncommercial/1.0.0/]PolyForm Noncommercial License 1.0.0[/url] - free for any noncommercial use.
+Buy me a coffee: [url]https://buymeacoffee.com/archdukejim[/url]
