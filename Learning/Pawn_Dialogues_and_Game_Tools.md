@@ -1,6 +1,6 @@
-# Pawn Dialogues and MCP Tools
+# Pawn Dialogues and Game Tools
 
-This page details the Pawn-to-Pawn Dialogue System and the Model Context Protocol (MCP) tools implemented in **RimSynapse - Chat**.
+This page details the Pawn-to-Pawn Dialogue System and the game tools implemented in **RimSynapse - Chat**.
 
 ---
 
@@ -42,9 +42,9 @@ Players can track ongoing conversations between their colonists via a personal m
 
 ---
 
-## 3. MCP Tools (DLC and Balanced Actions)
+## 3. Game Tools (DLC and Balanced Actions)
 
-Conversational LLMs can call registered game-engine tools on-demand, enabling balanced interventions and deep DLC context:
+Conversational LLMs can call game tools registered with Core's native tool-calling engine on-demand, enabling balanced interventions and deep DLC context:
 
 ### Balanced Universe Actions
 *   `trigger_mood_booster`: Applies a temporary mood buff (`KindWords`) or debuff (`Slighted`). Capped at once per 4 hours per colonist.
