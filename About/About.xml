@@ -4,7 +4,7 @@
     <author>RimSynapse Team</author>
     <packageId>RimSynapse.Conversations</packageId>
     <url>https://github.com/RimSynapse/Conversations</url>
-    <modVersion>0.6.0</modVersion>
+    <modVersion>0.6.1</modVersion>
     <supportedVersions>
         <li>1.5</li>
         <li>1.6</li>
@@ -27,7 +27,7 @@
     </loadAfter>
     <description>
 Discord Community: https://discord.gg/eVBebZ2N9s
-Version: v0.5.2 (Target: RimWorld 1.6)
+Version: v0.6.1 (Target: RimWorld 1.6)
 
 RimSynapse - Conversations
 Official Wiki and Documentation: https://github.com/RimSynapse/Conversations/wiki
@@ -36,6 +36,13 @@ Companion Mod for RimSynapse.
 Allows colonists to converse dynamically using LLMs.
 
 --- Changelog ---
+v0.6.1
+- Fixed: the in-game mod list showed v0.5.2 with no 0.6.0 notes; version and changelog now agree everywhere
+- Roadmap updated: 0.7 is Regions and Territories compatibility (groundwork for Factions, which will require Empire)
+v0.6.0
+- Moves in step with RimSynapse Core v0.6.0 (Agent and Tool Foundation)
+- Requires Core v0.6.0; saves and settings carry over unchanged
+- In-game wiki guides updated; "MCP" renamed to game tools throughout
 v0.5.2
 - Maintenance release, aligned with Core and Psychology fixes
 - Licence changed to PolyForm Noncommercial 1.0.0
