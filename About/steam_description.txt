@@ -1,7 +1,8 @@
 [b]Discord Community:[/b] [url=https://discord.gg/eVBebZ2N9s]https://discord.gg/eVBebZ2N9s[/url]
-[b]Version:[/b] v0.5.2 (Target: RimWorld 1.6)
+[b]Version:[/b] v0.6.0 (Target: RimWorld 1.6)
 
 [h1]RimSynapse - Conversations[/h1]
+[b][url=https://github.com/RimSynapse/Conversations/wiki]Official Wiki and Documentation[/url][/b]
 [b]Dynamic, memory-aware, and trait-influenced text conversations between your colonists using Large Language Models.[/b]
 
 Bring the social life of your colony to life! RimSynapse Conversations intercepts pawn interactions and translates them into actual written dialogue. What they say is directly shaped by their personal histories, traits, relationships, and current traumas.
@@ -28,6 +29,13 @@ These ship when they are ready - no dates.
 
 ---
 
+[h2]Changelog (v0.6.0)[/h2]
+[list]
+[*] [b]Requires RimSynapse Core v0.6.0.[/b] This release moves in step with Core's Agent and Tool Foundation update - your saves and settings carry over unchanged.
+[*] [b]Documentation:[/b] In-game wiki guides updated; "MCP" renamed to game tools throughout, matching Core's native tool-calling engine.
+[/list]
+
+---
 [h2]Changelog (v0.5.2)[/h2]
 [list]
 [*] [b]Maintenance release:[/b] No gameplay changes. Version aligned with the rest of the RimSynapse suite, which carries fixes in Core and Psychology.
