@@ -26,8 +26,12 @@ namespace RimSynapse.Conversations.Patches
             Pawn target = c.GetThingList(pawn.Map).OfType<Pawn>().FirstOrDefault(p => p.RaceProps.Humanlike && !p.Dead && p != pawn);
             if (target == null) return;
 
+            // Residency is Regions and Territories' mechanic and is asked for through Core.
+            if (!RimSynapse.SynapseCoreProviders.IsResident(target)) return;
+
+            // The recruitment cooldown is Core's own state, so it still comes off Core's comp.
             var comp = target.TryGetComp<RimSynapse.Comps.SynapseCorePawnComp>();
-            if (comp == null || !comp.isResident) return;
+            if (comp == null) return;
 
             // Check if hostile
             if (target.Faction != null && target.Faction.HostileTo(Faction.OfPlayer))

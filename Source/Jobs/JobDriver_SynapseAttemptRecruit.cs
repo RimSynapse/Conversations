@@ -99,7 +99,7 @@ namespace RimSynapse.Conversations
                 if (map != null && faction != null)
                 {
                     bool otherResidentAlive = map.mapPawns.AllPawns
-                        .Any(p => p != Resident && p.Faction == faction && p.RaceProps.Humanlike && !p.Dead && p.TryGetComp<SynapseCorePawnComp>()?.isResident == true);
+                        .Any(p => p != Resident && p.Faction == faction && p.RaceProps.Humanlike && !p.Dead && RimSynapse.SynapseCoreProviders.IsResident(p));
 
                     if (!otherResidentAlive)
                     {

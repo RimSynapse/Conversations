@@ -23,8 +23,7 @@ namespace RimSynapse.Conversations.Patches
             if (Current.ProgramState != ProgramState.Playing || Find.World == null) yield break;
             if (!pawn.RaceProps.Humanlike || pawn.Dead) yield break;
 
-            var coreComp = pawn.TryGetComp<RimSynapse.Comps.SynapseCorePawnComp>();
-            bool isResident = coreComp != null && coreComp.isResident;
+            bool isResident = RimSynapse.SynapseCoreProviders.IsResident(pawn);
 
             if (pawn.Faction == Faction.OfPlayer)
             {
