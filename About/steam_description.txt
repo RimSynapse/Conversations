@@ -1,5 +1,5 @@
 [b]Discord Community:[/b] [url=https://discord.gg/eVBebZ2N9s]https://discord.gg/eVBebZ2N9s[/url]
-[b]Version:[/b] v0.6.1 (Target: RimWorld 1.6)
+[b]Version:[/b] v0.7.0 (Target: RimWorld 1.6)
 
 [h1]RimSynapse - Conversations[/h1]
 [b][url=https://github.com/RimSynapse/Conversations/wiki]Official Wiki and Documentation[/url][/b]
@@ -22,11 +22,20 @@ Bring the social life of your colony to life! RimSynapse Conversations intercept
 [h2]Roadmap[/h2]
 [list]
 [*] [b]0.6 - Agent and Tool Foundation:[/b] ✅ Delivered in v0.6.0.
-[*] [b]0.7 - Regions and Territories Compatibility:[/b] Making the territory layer work cleanly alongside other major world and faction mods. A large undertaking on its own, and the groundwork everything faction-related depends on - the Factions work will build on the Empire mod.
-[*] [b]0.8 - Logic Externalization:[/b] Retiring hardcoded thresholds so the storyteller reasons about your colony's situation instead of following fixed rules.
-[*] [b]0.9 - Emergent Systems and Content:[/b] Faction archetypes for each DLC, caravans that travel the world map, settlement crises, faction capitals and travelling leaders, and richer colonist social dynamics.
+[*] [b]0.7 - Regions and Territories Compatibility:[/b] Basic pass-through alongside Empire Refactored and World Domination. Territories set tax rates; the regular game mechanics are left alone.
+[*] [b]0.8 - Demographics, News and Narrative Voice:[/b] Regional ideology and new map overlays, a newspaper driven by what actually happens on the world map, Aura's own personality, and local text-to-speech.
+[*] [b]0.9 - Factions and Living Societies:[/b] State ideologies, conversion and ideological spread, ideological sites and spies - building toward living NPC societies.
+[*] [b]0.10 - Cross-Mod Capability Passes:[/b] Bringing every module back together for another pass over what the whole set can do.
 [/list]
 These ship when they are ready - no dates.
+
+---
+
+[h2]Changelog (v0.7.0) - Regions and Territories Compatibility[/h2]
+[list]
+[*] Moves in step with RimSynapse Core v0.7.0.
+[*] Requires Core v0.7.0; saves and settings carry over unchanged.
+[/list]
 
 ---
 
