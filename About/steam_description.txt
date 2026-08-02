@@ -21,8 +21,6 @@ Bring the social life of your colony to life! RimSynapse Conversations intercept
 
 [h2]Roadmap[/h2]
 [list]
-[*] [b]0.6 - Agent and Tool Foundation:[/b] ✅ Delivered in v0.6.0 - the colonist conversation layer on top of Core's agent loop.
-[*] [b]0.7 - Regions and Territories Compatibility:[/b] Current release - carried forward under the shared infrastructure.
 [*] [b]0.8 - Demographics, News and Narrative Voice:[/b] An expanded agent toolset - chat-history and colonist-interest retrieval, and universe and world actions the storyteller can take in-world.
 [*] [b]0.9 - Factions and Living Societies:[/b] Auto-running therapy sessions land with Psychology, and conversations react to faction and social events.
 [*] [b]0.10 - Cross-Mod Capability Passes:[/b] Another pass over how dialogue ties psychology, factions and news together.
@@ -36,44 +34,7 @@ These ship when they are ready - no dates.
 [*] Moves in step with RimSynapse Core v0.7.0.
 [*] Requires Core v0.7.0; saves and settings carry over unchanged.
 [/list]
-
----
-
-[h2]Changelog (v0.6.1)[/h2]
-[list]
-[*] [b]FIXED - mod list metadata:[/b] The in-game mod list still showed v0.5.2 with no v0.6.0 notes. Version and changelog now agree in every place they are stated.
-[*] [b]Roadmap updated:[/b] 0.7 is now Regions and Territories compatibility - the groundwork the Factions work depends on. Everything after it shifts up one release.
-[/list]
-
----
-[h2]Changelog (v0.6.0)[/h2]
-[list]
-[*] [b]Requires RimSynapse Core v0.6.0.[/b] This release moves in step with Core's Agent and Tool Foundation update - your saves and settings carry over unchanged.
-[*] [b]Documentation:[/b] In-game wiki guides updated; "MCP" renamed to game tools throughout, matching Core's native tool-calling engine.
-[/list]
-
----
-[h2]Changelog (v0.5.2)[/h2]
-[list]
-[*] [b]Maintenance release:[/b] No gameplay changes. Version aligned with the rest of the RimSynapse suite, which carries fixes in Core and Psychology.
-[*] [b]Licence:[/b] Now PolyForm Noncommercial 1.0.0. Free to use, modify and share for any noncommercial purpose.
-[/list]
-
----
-
-[h2]Changelog (v0.5.1)[/h2]
-[list]
-[*] [b]NEW: Visual Speech Bubbles:[/b] Displays dynamic speech bubbles above talking colonists at normal speed, matching standard RimWorld UI colors and borders.
-[*] [b]NEW: Voice Projection Shifting:[/b] The bubble shifts to the left or right towards the listener, and the pointer tail anchors directly at the speaker's head.
-[*] [b]NEW: Environmental Chitchat Triggers:[/b] Talkative pawns will comment dynamically on freezing cold (freezer) or dim lighting (darkness) when entering them.
-[*] [b]NEW: Settings Customization:[/b] Configurable background color and transparency sliders for speech bubbles.
-[*] [b]NEW: Persuasion and Recruitment:[/b] Attempt recruitment on neutral resident NPCs via inspect-pane gizmo and three-state social check (Trust, Familiarity, Opinion).
-[*] [b]Chitchat Latency Cache:[/b] Pre-generates chats in-memory to eliminate dialogue lag at normal speeds.
-[*] [b]Sequential Generation:[/b] Dialogue is generated one-turn-at-a-time (initiator statement, recipient response) rather than 5 turns bulked.
-[*] [b]Continuation Rebalancing:[/b] Reduced continuation chance to 20% to prevent topic overlapping.
-[*] [b]Cleaned Up Non-Responses:[/b] Removed ellipsis ("...") speech bubbles from non-response interactions.
-[*] [b]UI Layout Fixes:[/b] Fixed text clipping in dialogue history logs and added Discord-style layouts.
-[/list]
+[b]Full version history:[/b] [url=https://github.com/RimSynapse/Conversations/wiki/Changelog]github.com/RimSynapse/Conversations/wiki[/url]
 
 ---
 

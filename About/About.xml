@@ -36,29 +36,16 @@ Companion Mod for RimSynapse.
 Allows colonists to converse dynamically using LLMs.
 
 --- Roadmap ---
-0.6 - Agent and Tool Foundation: Delivered in v0.6.0 - the colonist conversation layer on top of Core's agent loop.
-0.7 - Regions and Territories Compatibility: Current release - carried forward under the shared infrastructure.
 0.8 - Demographics, News and Narrative Voice: An expanded agent toolset - chat-history and colonist-interest retrieval, and universe and world actions the storyteller can take in-world.
 0.9 - Factions and Living Societies: Auto-running therapy sessions land with Psychology, and conversations react to faction and social events.
 0.10 - Cross-Mod Capability Passes: Another pass over how dialogue ties psychology, factions and news together.
 These ship when they are ready - no dates.
 
---- Changelog ---
-v0.7.0 - Regions and Territories Compatibility
+--- Changelog (v0.7.0) - Regions and Territories Compatibility ---
 - Moves in step with RimSynapse Core v0.7.0.
 - Requires Core v0.7.0; saves and settings carry over unchanged.
-v0.6.1
-- Fixed: the in-game mod list showed v0.5.2 with no 0.6.0 notes; version and changelog now agree everywhere
-- Roadmap updated: 0.7 is Regions and Territories compatibility (groundwork for Factions, which will require Empire)
-v0.6.0
-- Moves in step with RimSynapse Core v0.6.0 (Agent and Tool Foundation)
-- Requires Core v0.6.0; saves and settings carry over unchanged
-- In-game wiki guides updated; "MCP" renamed to game tools throughout
-v0.5.2
-- Maintenance release, aligned with Core and Psychology fixes
-- Licence changed to PolyForm Noncommercial 1.0.0
-v0.4.0
-- Updated to support RimSynapse Core v0.4.0 (Multi-provider routing and Image generation).
+
+Full version history: https://github.com/RimSynapse/Conversations/wiki/Changelog
 
 --- Compatibility Matrix ---
 - Royalty DLC: Compatible and Optional. Enables noble tone demands and psycast interjections.
