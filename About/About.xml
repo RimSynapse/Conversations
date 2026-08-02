@@ -36,11 +36,11 @@ Companion Mod for RimSynapse.
 Allows colonists to converse dynamically using LLMs.
 
 --- Roadmap ---
-0.6 - Agent and Tool Foundation: delivered in v0.6.0.
-0.7 - Regions and Territories Compatibility: basic pass-through alongside Empire Refactored and World Domination. Territories set tax rates; the regular game mechanics are left alone.
-0.8 - Demographics, News and Narrative Voice: regional ideology and new map overlays, a newspaper driven by what actually happens on the world map, Aura's own personality, and local text-to-speech.
-0.9 - Factions and Living Societies: state ideologies, conversion and ideological spread, ideological sites and spies - building toward living NPC societies.
-0.10 - Cross-Mod Capability Passes: bringing every module back together for another pass over what the whole set can do.
+0.6 - Agent and Tool Foundation: Delivered in v0.6.0 - the colonist conversation layer on top of Core's agent loop.
+0.7 - Regions and Territories Compatibility: Current release - carried forward under the shared infrastructure.
+0.8 - Demographics, News and Narrative Voice: An expanded agent toolset - chat-history and colonist-interest retrieval, and universe and world actions the storyteller can take in-world.
+0.9 - Factions and Living Societies: Auto-running therapy sessions land with Psychology, and conversations react to faction and social events.
+0.10 - Cross-Mod Capability Passes: Another pass over how dialogue ties psychology, factions and news together.
 These ship when they are ready - no dates.
 
 --- Changelog ---
