@@ -66,10 +66,12 @@ namespace RimSynapse.Conversations.Patches
             // Check if game is sped up
             bool isSpedUp = Find.TickManager.CurTimeSpeed != TimeSpeed.Normal;
 
-            // Check if caching is enabled
-            bool useCache = RimSynapseConversationsMod.Settings?.enablePreGeneratedCaching ?? true;
+            // Pre-seeding is EXPERIMENTAL and off by default (#29): it can serve stale context, and the
+            // recipient response must be dynamic regardless. When off, every conversation is generated
+            // live so we can measure real latency and context sufficiency.
+            bool useCache = (RimSynapseConversationsMod.Settings?.experimentalPreSeeding ?? false) && !isSpedUp;
 
-            if (useCache && !isSpedUp)
+            if (useCache)
             {
                 var cached = worldComp.PopFreshPreGen(initiator, recipient);
                 if (cached != null)
@@ -100,6 +102,8 @@ namespace RimSynapse.Conversations.Patches
                         string tName = cachedTopic != null ? cachedTopic.topicName : "Social";
                         PropagateContextMemories(initiator, recipient, tName, cached.initiatorStatement);
                         conversation.PushRecentTopic(cached.topicDefName);
+                        float poolDist = initiator.Position.DistanceTo(recipient.Position);
+                        ConversationMetrics.Add(initiator, recipient, cachedTopic, poolDist, poolDist, 0, 0, "pool");
 
                         // Queue next background pre-generation to refill the cache
                         QueuePreGeneration(initiator, recipient, intDef);
@@ -111,7 +115,7 @@ namespace RimSynapse.Conversations.Patches
             // Cache miss / caching disabled / game is sped up
             GenerateConversationAndApply(initiator, recipient, intDef, conversation, isSpedUp);
 
-            if (useCache && !isSpedUp)
+            if (useCache)
             {
                 // Queue a pre-generation in the background to refill cache for next time
                 QueuePreGeneration(initiator, recipient, intDef);
@@ -430,10 +434,17 @@ namespace RimSynapse.Conversations.Patches
         /// tick): pairs that have been talking and still have room get one more low-priority pre-gen,
         /// biased toward deep talk since it's the expensive, stall-prone path. Bounded per pass.
         /// </summary>
+        /// <summary>Force a live conversation between two pawns now (playtest / debug trigger, #29).</summary>
+        public static void ForceConversation(Pawn initiator, Pawn recipient, InteractionDef intDef)
+        {
+            if (initiator == null || recipient == null || intDef == null) return;
+            TriggerLlmDialogue(initiator, recipient, intDef);
+        }
+
         public static void TryTopUpPreGenPool(SynapseConversationsWorldComponent worldComp)
         {
             if (worldComp == null || worldComp.PoolAtTotalCap) return;
-            if (!(RimSynapseConversationsMod.Settings?.enablePreGeneratedCaching ?? true)) return;
+            if (!(RimSynapseConversationsMod.Settings?.experimentalPreSeeding ?? false)) return;
 
             const int maxPerPass = 2;
             int queued = 0;
@@ -454,6 +465,13 @@ namespace RimSynapse.Conversations.Patches
 
         private static void GenerateConversationAndApply(Pawn initiator, Pawn recipient, InteractionDef intDef, PawnConversation conversation, bool isSpedUp)
         {
+            // Playtest instrumentation (#29): stamp the request so we can measure how much in-game time
+            // (and wall-clock) passes before the first message lands, and how far the pawns drift.
+            int startTick = Find.TickManager.TicksGame;
+            var latencySw = System.Diagnostics.Stopwatch.StartNew();
+            float startDist = (initiator.Spawned && recipient.Spawned)
+                ? initiator.Position.DistanceTo(recipient.Position) : -1f;
+
             PerformSequentialDialogueGeneration(initiator, recipient, intDef, (parsed, topic, isContinuation) =>
             {
                 if (parsed != null && parsed.dialogue != null && parsed.dialogue.Count > 0)
@@ -494,6 +512,12 @@ namespace RimSynapse.Conversations.Patches
                         string topicName = (topic != null) ? topic.topicName : "Social";
                         PropagateContextMemories(initiator, recipient, topicName, firstLine);
                         conversation.PushRecentTopic(topic?.defName);
+
+                        latencySw.Stop();
+                        float endDist = (initiator.Spawned && recipient.Spawned)
+                            ? initiator.Position.DistanceTo(recipient.Position) : startDist;
+                        ConversationMetrics.Add(initiator, recipient, topic, startDist, endDist,
+                            Find.TickManager.TicksGame - startTick, latencySw.ElapsedMilliseconds, "live");
                     });
                 }
                 else

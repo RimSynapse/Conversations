@@ -54,6 +54,35 @@ namespace RimSynapse.Conversations.UI
             }
         }
 
+        [DebugAction("RimSynapse", "Conversations: Force chit-chat (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceChitchat(Pawn p) => ForceWithNearest(p, InteractionDefOf.Chitchat);
+
+        [DebugAction("RimSynapse", "Conversations: Force deep talk (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceDeepTalk(Pawn p) => ForceWithNearest(p, InteractionDefOf.DeepTalk);
+
+        private static void ForceWithNearest(Pawn p, InteractionDef intDef)
+        {
+            if (p == null) return;
+            Pawn other = p.Map?.mapPawns?.FreeColonists?
+                .Where(o => o != p && o.RaceProps.Humanlike && o.Spawned)
+                .OrderBy(o => o.Position.DistanceToSquared(p.Position))
+                .FirstOrDefault();
+            if (other == null)
+            {
+                RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] No conversation partner near {p.LabelShort}.");
+                return;
+            }
+            RimSynapse.SynapseLogger.Info("conversations",
+                $"[RimSynapse] Forcing {intDef.defName} {p.LabelShort} -> {other.LabelShort} (dist {p.Position.DistanceTo(other.Position):F1} tiles).");
+            Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.ForceConversation(p, other, intDef);
+        }
+
+        [DebugAction("RimSynapse", "Conversations: Dump metrics (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void DumpMetrics()
+        {
+            RimSynapse.SynapseLogger.Info("conversations", ConversationMetrics.Summary());
+        }
+
         [DebugAction("RimSynapse", "Conversations: Dump pre-gen pool (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void DumpPreGenPool()
         {

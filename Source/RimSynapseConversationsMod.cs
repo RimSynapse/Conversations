@@ -46,9 +46,11 @@ namespace RimSynapse.Conversations
             }
 
             listingStandard.CheckboxLabeled(
-                "Enable Experimental Conversation Caching",
-                ref Settings.enablePreGeneratedCaching,
-                "Pre-generates social conversations in the background to eliminate response delay."
+                "Experimental: Pre-seed conversations (may serve stale context)",
+                ref Settings.experimentalPreSeeding,
+                "EXPERIMENTAL. Pre-generates conversations in the background and serves them instantly. " +
+                "Off by default: pre-seeded lines can reference stale context (weather, a pawn who's been " +
+                "indoors all day). With it off, every conversation is generated live."
             );
             listingStandard.Gap(12f);
 
