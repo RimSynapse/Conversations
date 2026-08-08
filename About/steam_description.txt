@@ -1,5 +1,5 @@
 [b]Discord Community:[/b] [url=https://discord.gg/eVBebZ2N9s]https://discord.gg/eVBebZ2N9s[/url]
-[b]Version:[/b] v0.7.0 (Target: RimWorld 1.6)
+[b]Version:[/b] v0.7.1 (Target: RimWorld 1.6)
 
 [h1]RimSynapse - Conversations[/h1]
 [b][url=https://github.com/RimSynapse/Conversations/wiki]Official Wiki and Documentation[/url][/b]
@@ -28,6 +28,16 @@ Bring the social life of your colony to life! RimSynapse Conversations intercept
 These ship when they are ready - no dates.
 
 ---
+
+[h2]Changelog (v0.7.1) - Deeper, more personal conversations[/h2]
+[list]
+[*] NEW - 27 conversation topics (up from 6): small talk about weather, food, chores, animals and gossip, and deep talks about grief, regrets, beliefs, trauma, love, mortality and moral lines.
+[*] NEW - Colonists talk about their actual surroundings - the room they sleep in and the clothes they wear become conversation topics.
+[*] Conversations now draw on real memories: light recent events for small talk, long-standing burdens and specific losses for heart-to-hearts. Deep talks are richer and more personal while small talk stays brief.
+[*] Colonists no longer repeat the same topic back-to-back.
+[*] Experimental: optional background pre-seeding of conversations for instant delivery (off by default - it can serve stale context).
+[*] Requires Core v0.7.1.
+[/list]
 
 [h2]Changelog (v0.7.0) - Regions and Territories Compatibility[/h2]
 [list]

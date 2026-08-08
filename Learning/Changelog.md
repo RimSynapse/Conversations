@@ -2,6 +2,14 @@
 
 Full version history for RimSynapse - Conversations. The mod page and Workshop description show only the latest release; every earlier version is recorded here.
 
+## v0.7.1 - Deeper, more personal conversations
+- NEW - 27 conversation topics (up from 6): small talk about weather, food, chores, animals and gossip, and deep talks about grief, regrets, beliefs, trauma, love, mortality and moral lines.
+- NEW - Colonists talk about their actual surroundings - the room they sleep in and the clothes they wear become conversation topics (via a data-driven `contextKeys` on each topic def, modder-extensible).
+- Conversations now draw on the Core 0.7.1 memory tiers: light recent (today's) events for small talk, long-standing burdens and tag-filtered losses/trauma for heart-to-hearts. Deep talks maximize the context budget (personality summary, health, relationship); small talk stays lean.
+- Colonists no longer repeat the same topic back-to-back (per-pair topic history, which also diversifies pre-generation).
+- Experimental: an optional pre-seed pool generates conversations ahead of need for instant delivery, invalidated on significant events. Off by default - it can serve stale context (weather, an indoor pawn), so live generation is the measured baseline. Ships with `[CONV-METRIC]` latency/distance instrumentation and debug actions.
+- Requires Core v0.7.1; saves and settings carry over unchanged.
+
 ## v0.7.0 - Regions and Territories Compatibility
 - Moves in step with RimSynapse Core v0.7.0.
 - Requires Core v0.7.0; saves and settings carry over unchanged.
