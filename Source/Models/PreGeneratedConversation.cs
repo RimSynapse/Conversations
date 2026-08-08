@@ -1,9 +1,13 @@
-using System.Collections.Generic;
 using Verse;
 
 namespace RimSynapse.Conversations
 {
-    public class PreGeneratedConversation
+    /// <summary>
+    /// A conversation generated ahead of need and held in the pre-seed pool
+    /// (<see cref="SynapseConversationsWorldComponent"/>), so an interaction can be served instantly
+    /// instead of stalling on a live LLM call. Scribed so the pool survives save/load.
+    /// </summary>
+    public class PreGeneratedConversation : IExposable
     {
         public string initiatorId;
         public string recipientId;
@@ -11,48 +15,25 @@ namespace RimSynapse.Conversations
         public string recipientResponse;
         public string topicDefName;
         public bool isContinuation;
-        public int generatedAtTick;
+        public int generatedAtTick;       // TicksGame — drives TTL expiry
+        public long generatedAtAbsTick;   // TicksAbs — drives significant-event invalidation vs memory absTick
         public float trustOffset;
         public float familiarityOffset;
         public float affinityOffset;
-    }
 
-    public static class PreGeneratedConversationCache
-    {
-        private static readonly Dictionary<string, PreGeneratedConversation> cache = new Dictionary<string, PreGeneratedConversation>();
-
-        private static string GetKey(string idA, string idB)
+        public void ExposeData()
         {
-            return idA.CompareTo(idB) < 0 ? $"{idA}_{idB}" : $"{idB}_{idA}";
-        }
-
-        public static void Store(string idA, string idB, PreGeneratedConversation conv)
-        {
-            if (string.IsNullOrEmpty(idA) || string.IsNullOrEmpty(idB) || conv == null) return;
-            cache[GetKey(idA, idB)] = conv;
-        }
-
-        public static PreGeneratedConversation Pop(string idA, string idB)
-        {
-            if (string.IsNullOrEmpty(idA) || string.IsNullOrEmpty(idB)) return null;
-            string key = GetKey(idA, idB);
-            if (cache.TryGetValue(key, out var conv))
-            {
-                cache.Remove(key);
-                return conv;
-            }
-            return null;
-        }
-
-        public static bool Has(string idA, string idB)
-        {
-            if (string.IsNullOrEmpty(idA) || string.IsNullOrEmpty(idB)) return false;
-            return cache.ContainsKey(GetKey(idA, idB));
-        }
-
-        public static void Clear()
-        {
-            cache.Clear();
+            Scribe_Values.Look(ref initiatorId, "initiatorId");
+            Scribe_Values.Look(ref recipientId, "recipientId");
+            Scribe_Values.Look(ref initiatorStatement, "initiatorStatement");
+            Scribe_Values.Look(ref recipientResponse, "recipientResponse");
+            Scribe_Values.Look(ref topicDefName, "topicDefName");
+            Scribe_Values.Look(ref isContinuation, "isContinuation", false);
+            Scribe_Values.Look(ref generatedAtTick, "generatedAtTick", 0);
+            Scribe_Values.Look(ref generatedAtAbsTick, "generatedAtAbsTick", 0L);
+            Scribe_Values.Look(ref trustOffset, "trustOffset", 0f);
+            Scribe_Values.Look(ref familiarityOffset, "familiarityOffset", 0f);
+            Scribe_Values.Look(ref affinityOffset, "affinityOffset", 0f);
         }
     }
 }

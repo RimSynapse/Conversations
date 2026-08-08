@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Conversation topics. isChitchat topics fire on light social interactions; isDeepTalk on DeepTalk.
+  <contextKeys> pull live pawn data into the prompt when the topic is chosen (see
+  ConversationContextResolver). Chit-chat is kept lean; deep talk maximizes the context budget.
+  Every topic is individually toggleable in mod settings.
+-->
 <Defs>
-  <!-- Chitchat Topics -->
+
+  <!-- ===================== CHIT-CHAT ===================== -->
+
   <RimSynapse.Conversations.ChatTopicDef>
     <defName>RimSynapse_Topic_Weather</defName>
     <label>weather</label>
@@ -8,7 +16,7 @@
     <isChitchat>true</isChitchat>
     <isDeepTalk>false</isDeepTalk>
     <prompts>
-      <li>the local weather conditions and temperature changes</li>
+      <li>the local weather and temperature changes</li>
       <li>whether they prefer sunny, rainy, or snowy days</li>
       <li>how the current season is affecting their mood</li>
     </prompts>
@@ -21,9 +29,9 @@
     <isChitchat>true</isChitchat>
     <isDeepTalk>false</isDeepTalk>
     <prompts>
-      <li>what jobs they completed today and their work preferences</li>
-      <li>how tired or rested they feel</li>
-      <li>the quality of their meals or lodging</li>
+      <li>the jobs they worked on today and what they'd rather be doing</li>
+      <li>how tired or rested they feel after the day</li>
+      <li>the little habits that get them through a shift</li>
     </prompts>
   </RimSynapse.Conversations.ChatTopicDef>
 
@@ -34,13 +42,163 @@
     <isChitchat>true</isChitchat>
     <isDeepTalk>false</isDeepTalk>
     <prompts>
-      <li>recent events or things observed around the colony</li>
-      <li>gossip about other colonists' quirks and habits</li>
-      <li>minor rumors or stories they heard</li>
+      <li>a bit of gossip about another colonist's quirks or habits</li>
+      <li>a minor rumor or story going around the colony</li>
+      <li>something odd they noticed someone doing lately</li>
     </prompts>
   </RimSynapse.Conversations.ChatTopicDef>
 
-  <!-- Deep Talk Topics -->
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_FoodAndMeals</defName>
+    <label>food and meals</label>
+    <topicName>Food and Meals</topicName>
+    <isChitchat>true</isChitchat>
+    <isDeepTalk>false</isDeepTalk>
+    <contextKeys><li>food</li></contextKeys>
+    <prompts>
+      <li>what they last ate and whether it was any good</li>
+      <li>a meal they're craving or sick of</li>
+      <li>a gripe or compliment about the cooking</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_Quarters</defName>
+    <label>their quarters</label>
+    <topicName>Their Quarters</topicName>
+    <isChitchat>true</isChitchat>
+    <isDeepTalk>false</isDeepTalk>
+    <contextKeys><li>ownedRoom</li></contextKeys>
+    <prompts>
+      <li>their sleeping quarters and how comfortable (or not) they are</li>
+      <li>something they'd change about where they bunk</li>
+      <li>whether they'd like a room to themselves</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_Apparel</defName>
+    <label>what they're wearing</label>
+    <topicName>Apparel</topicName>
+    <isChitchat>true</isChitchat>
+    <isDeepTalk>false</isDeepTalk>
+    <contextKeys><li>apparel</li></contextKeys>
+    <prompts>
+      <li>the clothes they're wearing and how they're holding up</li>
+      <li>a garment that's worn out, tattered, or needs replacing</li>
+      <li>a piece of gear they're proud of or want</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_AchesAndNiggles</defName>
+    <label>aches and niggles</label>
+    <topicName>Aches and Niggles</topicName>
+    <isChitchat>true</isChitchat>
+    <isDeepTalk>false</isDeepTalk>
+    <contextKeys><li>health</li></contextKeys>
+    <prompts>
+      <li>a minor ache, injury, or bad night's sleep</li>
+      <li>how their body is holding up to colony life</li>
+      <li>a nagging health complaint they can't shake</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_AnimalsAndPets</defName>
+    <label>animals and pets</label>
+    <topicName>Animals and Pets</topicName>
+    <isChitchat>true</isChitchat>
+    <isDeepTalk>false</isDeepTalk>
+    <contextKeys><li>bondedAnimal</li></contextKeys>
+    <prompts>
+      <li>a colony animal or a pet they're fond of</li>
+      <li>something an animal did that amused or annoyed them</li>
+      <li>how the livestock or herds are doing</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_ChoresAndComplaints</defName>
+    <label>chores and complaints</label>
+    <topicName>Chores and Complaints</topicName>
+    <isChitchat>true</isChitchat>
+    <isDeepTalk>false</isDeepTalk>
+    <prompts>
+      <li>a chore they're tired of doing (hauling, cleaning, cooking)</li>
+      <li>work they feel should be someone else's job</li>
+      <li>something around the colony that never seems to get done</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_Surroundings</defName>
+    <label>surroundings</label>
+    <topicName>Surroundings</topicName>
+    <isChitchat>true</isChitchat>
+    <isDeepTalk>false</isDeepTalk>
+    <prompts>
+      <li>the local terrain, biome, or nearby landmarks</li>
+      <li>wildlife or threats they've seen around the map</li>
+      <li>whether this is a good spot to have settled</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_ColonyProjects</defName>
+    <label>colony projects</label>
+    <topicName>Colony Projects</topicName>
+    <isChitchat>true</isChitchat>
+    <isDeepTalk>false</isDeepTalk>
+    <prompts>
+      <li>a new build or expansion going up around the colony</li>
+      <li>research or a project they're excited (or skeptical) about</li>
+      <li>what the colony should build or fix next</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_TodaysHappenings</defName>
+    <label>today's happenings</label>
+    <topicName>Today's Happenings</topicName>
+    <isChitchat>true</isChitchat>
+    <isDeepTalk>false</isDeepTalk>
+    <contextKeys><li>memoriesToday</li></contextKeys>
+    <prompts>
+      <li>a small thing that happened around the colony today</li>
+      <li>how their day has gone so far</li>
+      <li>a minor event worth mentioning in passing</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_TradeAndLoot</defName>
+    <label>trade and loot</label>
+    <topicName>Trade and Loot</topicName>
+    <isChitchat>true</isChitchat>
+    <isDeepTalk>false</isDeepTalk>
+    <prompts>
+      <li>goods a recent caravan or trader brought</li>
+      <li>something the colony needs to buy or sell</li>
+      <li>loot or salvage from a recent raid or ruin</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_IdleBanter</defName>
+    <label>idle banter</label>
+    <topicName>Idle Banter</topicName>
+    <isChitchat>true</isChitchat>
+    <isDeepTalk>false</isDeepTalk>
+    <prompts>
+      <li>an offhand joke or a bit of harmless teasing</li>
+      <li>a random thought that just crossed their mind</li>
+      <li>nothing in particular, just passing the time</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <!-- ===================== DEEP TALK ===================== -->
+
   <RimSynapse.Conversations.ChatTopicDef>
     <defName>RimSynapse_Topic_Backstories</defName>
     <label>backstories</label>
@@ -48,9 +206,9 @@
     <isChitchat>false</isChitchat>
     <isDeepTalk>true</isDeepTalk>
     <prompts>
-      <li>their childhood experiences and upbringing</li>
+      <li>their childhood and how they were raised</li>
       <li>what they did before arriving at the colony</li>
-      <li>how their past life shapes their current values</li>
+      <li>how their past shaped the values they hold now</li>
     </prompts>
   </RimSynapse.Conversations.ChatTopicDef>
 
@@ -60,9 +218,10 @@
     <topicName>Memories</topicName>
     <isChitchat>false</isChitchat>
     <isDeepTalk>true</isDeepTalk>
+    <contextKeys><li>memoriesLongTerm</li></contextKeys>
     <prompts>
-      <li>significant recent memories and emotional experiences</li>
-      <li>how they felt about recent losses, achievements, or battles</li>
+      <li>a defining experience that still weighs on them</li>
+      <li>how they feel about a significant loss, victory, or battle</li>
       <li>their view of the colony's history and struggles</li>
     </prompts>
   </RimSynapse.Conversations.ChatTopicDef>
@@ -75,8 +234,147 @@
     <isDeepTalk>true</isDeepTalk>
     <prompts>
       <li>their hopes for the future and personal goals</li>
-      <li>what scares them the most about surviving on this planet</li>
-      <li>their deepest regrets or unresolved burdens</li>
+      <li>what frightens them most about surviving here</li>
+      <li>a fear they don't usually admit out loud</li>
     </prompts>
   </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_GriefAndLoss</defName>
+    <label>grief and loss</label>
+    <topicName>Grief and Loss</topicName>
+    <isChitchat>false</isChitchat>
+    <isDeepTalk>true</isDeepTalk>
+    <contextKeys><li>griefMemories</li></contextKeys>
+    <prompts>
+      <li>someone they lost and still think about</li>
+      <li>how they carry the deaths they've witnessed</li>
+      <li>whether the grief has gotten easier or harder</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_BondsAndRifts</defName>
+    <label>bonds and rifts</label>
+    <topicName>Bonds and Rifts</topicName>
+    <isChitchat>false</isChitchat>
+    <isDeepTalk>true</isDeepTalk>
+    <contextKeys><li>recipientRelationship</li></contextKeys>
+    <prompts>
+      <li>how they truly feel about the person they're talking to</li>
+      <li>a moment that brought them closer, or drove them apart</li>
+      <li>what they wish they could say to them but usually don't</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_BeliefsAndMeaning</defName>
+    <label>beliefs and meaning</label>
+    <topicName>Beliefs and Meaning</topicName>
+    <isChitchat>false</isChitchat>
+    <isDeepTalk>true</isDeepTalk>
+    <prompts>
+      <li>what they believe gives their life meaning out here</li>
+      <li>their faith, ideology, or the principles they live by</li>
+      <li>a belief of theirs that's been tested lately</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_RegretsAndGuilt</defName>
+    <label>regrets and guilt</label>
+    <topicName>Regrets and Guilt</topicName>
+    <isChitchat>false</isChitchat>
+    <isDeepTalk>true</isDeepTalk>
+    <contextKeys><li>memoriesLongTerm</li></contextKeys>
+    <prompts>
+      <li>a choice they'd undo if they could</li>
+      <li>something they feel guilty about carrying</li>
+      <li>a person they feel they failed</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_TraumaAndNightmares</defName>
+    <label>trauma and nightmares</label>
+    <topicName>Trauma and Nightmares</topicName>
+    <isChitchat>false</isChitchat>
+    <isDeepTalk>true</isDeepTalk>
+    <contextKeys><li>traumaMemories</li></contextKeys>
+    <prompts>
+      <li>a horror from their past that still haunts them</li>
+      <li>the nightmares or intrusive thoughts they live with</li>
+      <li>how close they've come to breaking, and what held them together</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_HomeAndBelonging</defName>
+    <label>home and belonging</label>
+    <topicName>Home and Belonging</topicName>
+    <isChitchat>false</isChitchat>
+    <isDeepTalk>true</isDeepTalk>
+    <contextKeys><li>ownedRoom</li><li>residency</li></contextKeys>
+    <prompts>
+      <li>whether this place has started to feel like home</li>
+      <li>what "home" even means to them after everything</li>
+      <li>if they picture staying here, or moving on</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_IdentityAndSelfImage</defName>
+    <label>identity and self-image</label>
+    <topicName>Identity and Self-Image</topicName>
+    <isChitchat>false</isChitchat>
+    <isDeepTalk>true</isDeepTalk>
+    <contextKeys><li>personalitySummary</li></contextKeys>
+    <prompts>
+      <li>how they see themselves and their role in the colony</li>
+      <li>the gap between who they are and who they want to be</li>
+      <li>whether the rim has changed the person they used to be</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_MortalityAndSurvival</defName>
+    <label>mortality and survival</label>
+    <topicName>Mortality and Survival</topicName>
+    <isChitchat>false</isChitchat>
+    <isDeepTalk>true</isDeepTalk>
+    <prompts>
+      <li>how they make peace with how dangerous life here is</li>
+      <li>what they think happens when their luck finally runs out</li>
+      <li>what keeps them getting up each morning anyway</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_LoveAndLonging</defName>
+    <label>love and longing</label>
+    <topicName>Love and Longing</topicName>
+    <isChitchat>false</isChitchat>
+    <isDeepTalk>true</isDeepTalk>
+    <contextKeys><li>recipientRelationship</li></contextKeys>
+    <prompts>
+      <li>someone they love, miss, or long to be closer to</li>
+      <li>family or a partner separated from them by distance or death</li>
+      <li>what companionship means to them out here</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
+  <RimSynapse.Conversations.ChatTopicDef>
+    <defName>RimSynapse_Topic_MoralLines</defName>
+    <label>moral lines</label>
+    <topicName>Moral Lines</topicName>
+    <isChitchat>false</isChitchat>
+    <isDeepTalk>true</isDeepTalk>
+    <contextKeys><li>personalitySummary</li></contextKeys>
+    <prompts>
+      <li>a line they won't cross, no matter the cost to survive</li>
+      <li>a hard, morally grey choice the colony has faced</li>
+      <li>how they weigh cruelty against compassion out here</li>
+    </prompts>
+  </RimSynapse.Conversations.ChatTopicDef>
+
 </Defs>

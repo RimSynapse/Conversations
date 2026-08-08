@@ -71,7 +71,7 @@ namespace RimSynapse.Conversations.Patches
 
             if (useCache && !isSpedUp)
             {
-                var cached = PreGeneratedConversationCache.Pop(idA, idB);
+                var cached = worldComp.PopFreshPreGen(initiator, recipient);
                 if (cached != null)
                 {
                     // If cached as continuation but more than 1 hour passed since last actual interaction, discard it
@@ -99,6 +99,7 @@ namespace RimSynapse.Conversations.Patches
                         ChatTopicDef cachedTopic = DefDatabase<ChatTopicDef>.GetNamed(cached.topicDefName, false);
                         string tName = cachedTopic != null ? cachedTopic.topicName : "Social";
                         PropagateContextMemories(initiator, recipient, tName, cached.initiatorStatement);
+                        conversation.PushRecentTopic(cached.topicDefName);
 
                         // Queue next background pre-generation to refill the cache
                         QueuePreGeneration(initiator, recipient, intDef);
@@ -144,7 +145,11 @@ namespace RimSynapse.Conversations.Patches
                 }
             }
 
-            ChatTopicDef topic = SelectRandomTopic(intDef);
+            // Avoid repeating this pair's recent topics, and diversify their pre-gen pool.
+            var avoidTopics = new HashSet<string>();
+            if (conversation?.recentTopics != null) avoidTopics.UnionWith(conversation.recentTopics);
+            if (worldComp != null) avoidTopics.UnionWith(worldComp.PoolTopicsForPair(idA, idB));
+            ChatTopicDef topic = SelectRandomTopic(intDef, avoidTopics);
 
             // 1. Compile Initiator context
             float restLevel = initiator.needs?.rest?.CurLevel ?? 1f;
@@ -191,13 +196,14 @@ namespace RimSynapse.Conversations.Patches
                 primaryJob = commaIdx != -1 ? jobSummary.Substring(0, commaIdx).Trim() : jobSummary.Trim();
             }
 
-            // Extract recent memory
-            string recentMemory = "";
-            if (initCore != null && initCore.memories != null && initCore.memories.Count > 0)
-            {
-                var mostRecent = initCore.memories.OrderByDescending(m => m.gameTick).FirstOrDefault(m => !string.IsNullOrEmpty(m.summary));
-                if (mostRecent != null) recentMemory = mostRecent.summary;
-            }
+            // Recent-event line via the 0.7.1 memory tiers: today's events for chit-chat, long-standing
+            // burdens for deep talk (replaces the old "newest memory by tick"). Topic contextKeys add
+            // targeted live data (owned room, worn apparel, grief/trauma memories, relationship, etc.).
+            bool isDeepTalk = topic != null && topic.isDeepTalk;
+            string memoryLine = ConversationContextResolver.BaseMemoryLine(initCore, isDeepTalk) ?? "none";
+            string topicContext = topic != null
+                ? ConversationContextResolver.ResolveAll(topic.contextKeys, initiator, recipient, initCore)
+                : "";
 
             string systemPrompt = "";
             if (isContinuation)
@@ -218,20 +224,39 @@ namespace RimSynapse.Conversations.Patches
             }
             else
             {
-                string topicPrompt = topic != null ? topic.prompts.RandomElement() : "social chitchat";
-                systemPrompt = $"You are simulating the RimWorld pawn {initiator.Name.ToStringShort}.\n" +
-                    $"Personality: {initiatorTraits} (Psychology: {initPsych})\n" +
-                    $"Current Mood: {moodContext}\n" +
-                    $"Exhaustion: {exhaustionState}\n" +
-                    $"Last Eaten: {lastEaten}\n" +
-                    $"Current Weather: {weather}\n" +
-                    $"Most Common 24h Activity: {primaryJob}\n" +
-                    $"Recent Event: {(string.IsNullOrEmpty(recentMemory) ? "none" : recentMemory)}\n" +
-                    $"Opinion of {recipient.Name.ToStringShort}: {initOpinionOfRecip} (-100 to 100)\n\n" +
-                    $"Write exactly 1 brief statement (1-2 sentences, under 20 words) directed at {recipient.Name.ToStringShort}.\n" +
-                    $"The topic is strictly: {topicPrompt}.\n" +
-                    $"Use your mood, chores, weather, or energy level as flavor ONLY if the topic is general chitchat. If the topic is specific (e.g. gossip, rumors, backstory, fears), focus purely on that topic and do NOT mention the weather, meals, or your chores. " +
-                    $"Do NOT include names/labels or formatting. Return strictly valid JSON: {{ \"text\": \"your statement\" }}";
+                string topicPrompt = topic != null ? topic.prompts.RandomElement() : "small talk";
+                string ctxBlock = string.IsNullOrEmpty(topicContext) ? "" : $"\nContext:\n{topicContext}";
+
+                if (isDeepTalk)
+                {
+                    // Deep talk maximizes the context budget: personality summary, weighed memories, and
+                    // the topic's targeted live data feed an intimate, from-the-heart exchange.
+                    systemPrompt = $"You are simulating the RimWorld pawn {initiator.Name.ToStringShort} in a private, meaningful conversation with {recipient.Name.ToStringShort}.\n" +
+                        $"Personality: {initiatorTraits} (Psychology: {initPsych})\n" +
+                        $"Current Mood: {moodContext}\n" +
+                        $"Weighing on them: {memoryLine}\n" +
+                        $"Opinion of {recipient.Name.ToStringShort}: {initOpinionOfRecip} (-100 to 100){ctxBlock}\n\n" +
+                        $"Open up about strictly this: {topicPrompt}.\n" +
+                        $"Speak personally and from the heart, drawing on the memories and context above. Write 1-2 sentences (under 30 words). Do NOT mention weather, meals, or chores. " +
+                        $"Do NOT include names/labels or formatting. Return strictly valid JSON: {{ \"text\": \"your statement\" }}";
+                }
+                else
+                {
+                    // Chit-chat stays lean and cheap.
+                    systemPrompt = $"You are simulating the RimWorld pawn {initiator.Name.ToStringShort}.\n" +
+                        $"Personality: {initiatorTraits} (Psychology: {initPsych})\n" +
+                        $"Current Mood: {moodContext}\n" +
+                        $"Exhaustion: {exhaustionState}\n" +
+                        $"Last Eaten: {lastEaten}\n" +
+                        $"Current Weather: {weather}\n" +
+                        $"Most Common 24h Activity: {primaryJob}\n" +
+                        $"Recent Event: {memoryLine}{ctxBlock}\n" +
+                        $"Opinion of {recipient.Name.ToStringShort}: {initOpinionOfRecip} (-100 to 100)\n\n" +
+                        $"Write exactly 1 brief statement (1-2 sentences, under 20 words) directed at {recipient.Name.ToStringShort}.\n" +
+                        $"The topic is strictly: {topicPrompt}.\n" +
+                        $"Use your mood, chores, weather, or energy level as flavor ONLY if the topic is general chitchat. If the topic is specific, focus purely on that topic and do NOT mention the weather, meals, or your chores. " +
+                        $"Do NOT include names/labels or formatting. Return strictly valid JSON: {{ \"text\": \"your statement\" }}";
+                }
             }
 
             var apiMessages = new List<ChatMessage> { new ChatMessage { role = "system", content = systemPrompt } };
@@ -370,11 +395,12 @@ namespace RimSynapse.Conversations.Patches
         private static void QueuePreGeneration(Pawn initiator, Pawn recipient, InteractionDef intDef)
         {
             if (initiator == null || recipient == null || !initiator.Spawned || !recipient.Spawned) return;
-            
+
             string idA = initiator.ThingID;
             string idB = recipient.ThingID;
 
-            if (PreGeneratedConversationCache.Has(idA, idB)) return;
+            var worldComp = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            if (worldComp == null || !worldComp.PairNeedsFill(idA, idB)) return;
 
             PerformSequentialDialogueGeneration(initiator, recipient, intDef, (parsed, topic, isContinuation) =>
             {
@@ -389,13 +415,41 @@ namespace RimSynapse.Conversations.Patches
                         topicDefName = topic?.defName ?? "Social",
                         isContinuation = isContinuation,
                         generatedAtTick = Find.TickManager.TicksGame,
+                        generatedAtAbsTick = Find.TickManager.TicksAbs,
                         trustOffset = parsed.trustOffset,
                         familiarityOffset = parsed.familiarityOffset,
                         affinityOffset = parsed.affinityOffset
                     };
-                    PreGeneratedConversationCache.Store(idA, idB, preGen);
+                    worldComp.AddToPool(preGen);
                 }
             });
+        }
+
+        /// <summary>
+        /// Proactively top up the pre-seed pool on idle cycles (called from the world component's rare
+        /// tick): pairs that have been talking and still have room get one more low-priority pre-gen,
+        /// biased toward deep talk since it's the expensive, stall-prone path. Bounded per pass.
+        /// </summary>
+        public static void TryTopUpPreGenPool(SynapseConversationsWorldComponent worldComp)
+        {
+            if (worldComp == null || worldComp.PoolAtTotalCap) return;
+            if (!(RimSynapseConversationsMod.Settings?.enablePreGeneratedCaching ?? true)) return;
+
+            const int maxPerPass = 2;
+            int queued = 0;
+            foreach (var conv in worldComp.pawnConversations)
+            {
+                if (queued >= maxPerPass || worldComp.PoolAtTotalCap) break;
+                if (conv == null || !worldComp.PairNeedsFill(conv.pawnAId, conv.pawnBId)) continue;
+
+                var a = SynapseConversationsWorldComponent.PawnFromId(conv.pawnAId);
+                var b = SynapseConversationsWorldComponent.PawnFromId(conv.pawnBId);
+                if (a == null || b == null || a.Dead || b.Dead) continue;
+
+                var intDef = Rand.Value < 0.5f ? InteractionDefOf.DeepTalk : InteractionDefOf.Chitchat;
+                QueuePreGeneration(a, b, intDef);
+                queued++;
+            }
         }
 
         private static void GenerateConversationAndApply(Pawn initiator, Pawn recipient, InteractionDef intDef, PawnConversation conversation, bool isSpedUp)
@@ -439,6 +493,7 @@ namespace RimSynapse.Conversations.Patches
 
                         string topicName = (topic != null) ? topic.topicName : "Social";
                         PropagateContextMemories(initiator, recipient, topicName, firstLine);
+                        conversation.PushRecentTopic(topic?.defName);
                     });
                 }
                 else
@@ -448,13 +503,13 @@ namespace RimSynapse.Conversations.Patches
             });
         }
 
-        private static ChatTopicDef SelectRandomTopic(InteractionDef intDef)
+        private static ChatTopicDef SelectRandomTopic(InteractionDef intDef, ICollection<string> avoid)
         {
             var allTopics = DefDatabase<ChatTopicDef>.AllDefsListForReading;
             if (allTopics == null || allTopics.Count == 0) return null;
 
-            var enabledTopics = allTopics.Where(t => 
-                (RimSynapseConversationsMod.Settings?.disabledTopicDefNames == null || 
+            var enabledTopics = allTopics.Where(t =>
+                (RimSynapseConversationsMod.Settings?.disabledTopicDefNames == null ||
                  !RimSynapseConversationsMod.Settings.disabledTopicDefNames.Contains(t.defName))
             ).ToList();
 
@@ -476,6 +531,15 @@ namespace RimSynapse.Conversations.Patches
             if (candidates.Count == 0)
             {
                 candidates = enabledTopics;
+            }
+
+            // Anti-repetition: prefer topics this pair has NOT used recently (and that aren't already
+            // sitting in their pre-gen pool), so consecutive conversations don't land on the same topic.
+            // Only fall back to the full set if avoidance would leave nothing to pick.
+            if (avoid != null && avoid.Count > 0)
+            {
+                var fresh = candidates.Where(t => !avoid.Contains(t.defName)).ToList();
+                if (fresh.Count > 0) candidates = fresh;
             }
 
             return candidates.RandomElement();
