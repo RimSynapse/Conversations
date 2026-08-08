@@ -7,6 +7,9 @@ namespace RimSynapse.Conversations
     {
         public List<string> disabledTopicDefNames = new List<string>();
         public bool enablePreGeneratedCaching = true;
+        // EXPERIMENTAL: serve conversations from the pre-seed pool. Off by default — the pool can serve
+        // stale context (weather, indoor pawns), so live generation is the measured baseline. See #29.
+        public bool experimentalPreSeeding = false;
         // Minimum in-game hours between AI-generated conversations for the same pawn pair.
         // Vanilla social interactions fire very frequently; this throttles how often they
         // are upgraded into a full Synapse dialogue so chatter (and the social memories it
@@ -22,6 +25,7 @@ namespace RimSynapse.Conversations
             base.ExposeData();
             Scribe_Collections.Look(ref disabledTopicDefNames, "disabledTopicDefNames", LookMode.Value);
             Scribe_Values.Look(ref enablePreGeneratedCaching, "enablePreGeneratedCaching", true);
+            Scribe_Values.Look(ref experimentalPreSeeding, "experimentalPreSeeding", false);
             Scribe_Values.Look(ref dialogueCooldownHours, "dialogueCooldownHours", 1f);
             Scribe_Values.Look(ref bubbleRed, "bubbleRed", 0.12f);
             Scribe_Values.Look(ref bubbleGreen, "bubbleGreen", 0.12f);
