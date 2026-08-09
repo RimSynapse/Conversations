@@ -83,6 +83,22 @@ namespace RimSynapse.Conversations.UI
             RimSynapse.SynapseLogger.Info("conversations", ConversationMetrics.Summary());
         }
 
+        /// <summary>
+        /// Exercises the read-only agent tools (Conversations#10) headlessly: runs get_chat_history
+        /// and get_colonist_interests on the clicked pawn and logs the JSON each returns.
+        /// </summary>
+        [DebugAction("RimSynapse", "Conversations: Dump agent read-tools (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void DumpAgentReadTools(Pawn p)
+        {
+            if (p == null) return;
+            string args = "{\"pawnName\": \"" + p.LabelShort + "\"}";
+            RimSynapse.SynapseLogger.Info("conversations", $"--- Agent read-tools for {p.LabelShort} ---");
+            RimSynapse.SynapseLogger.Info("conversations",
+                "get_chat_history      : " + SynapseToolRegistry.ExecuteTool("get_chat_history", args, allowMutating: false));
+            RimSynapse.SynapseLogger.Info("conversations",
+                "get_colonist_interests: " + SynapseToolRegistry.ExecuteTool("get_colonist_interests", args, allowMutating: false));
+        }
+
         [DebugAction("RimSynapse", "Conversations: Dump pre-gen pool (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void DumpPreGenPool()
         {
