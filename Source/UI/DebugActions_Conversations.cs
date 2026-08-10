@@ -113,6 +113,19 @@ namespace RimSynapse.Conversations.UI
         }
 
         /// <summary>
+        /// 0.8 perf validation: force the environmental-trigger scan (darkness/freezer) for every
+        /// colonist now, bypassing the per-pawn hash-interval gate, and log how many were evaluated.
+        /// </summary>
+        [DebugAction("RimSynapse", "Conversations: Force environmental scan (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceEnvironmentalScan()
+        {
+            var mc = Find.CurrentMap?.GetComponent<SynapseConversationsMapComponent>();
+            if (mc == null) { RimSynapse.SynapseLogger.Info("conversations", "[RimSynapse] No conversations map component."); return; }
+            int n = mc.ForceEnvironmentalScan();
+            RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] Forced environmental scan evaluated {n} colonist(s).");
+        }
+
+        /// <summary>
         /// Exercises the read-only agent tools (Conversations#10) headlessly: runs get_chat_history
         /// and get_colonist_interests on the clicked pawn and logs the JSON each returns.
         /// </summary>
