@@ -165,24 +165,41 @@ namespace RimSynapse.Conversations.Patches
             if (conversation?.recentTopics != null) avoidTopics.UnionWith(conversation.recentTopics);
             avoidTopics.UnionWith(worldComp.PoolTopicsForPair(idA, idB));
             ChatTopicDef topic = SelectRandomTopic(intDef, avoidTopics);
-            bool isDeepTalk = topic != null && topic.isDeepTalk;
-
-            // Single-call generation (Conversations#31): one LLM round-trip emits the WHOLE alternating
-            // exchange (~TargetExchangeLines lines) plus the social offsets, instead of two sequential
-            // calls per line. Downstream shows the first line immediately and drip-feeds the rest while
-            // the pawns stay in range. The reply is still generated live (never pre-canned), satisfying
-            // #29's "response must always be dynamic".
             var initCore = initiator.TryGetComp<SynapseCorePawnComp>();
 
-            // Chit-chat lets ambient flavor (weather/meals/chores) in only for general small talk; deep
-            // talk and specific topics stay focused (mirrors the previous per-call instructions).
-            string initCtx = BuildParticipantContext(initiator, recipient, includeAmbient: !isDeepTalk, isDeepTalk: isDeepTalk);
-            string recipCtx = BuildParticipantContext(recipient, initiator, includeAmbient: !isDeepTalk, isDeepTalk: isDeepTalk);
+            // Event-driven topics (#34): with a high weight, steer the conversation onto a recent
+            // significant event this pawn actually lived through (involvement-gated EventReflection
+            // memories from Core#88) instead of generic small talk — so ordeals get talked about. Deep
+            // talk gravitates to the weightiest memory; chit-chat to a recent one.
+            WeightedMemory eventMem = TrySelectEventMemory(initCore, intDef == InteractionDefOf.DeepTalk, avoidTopics);
+            bool isEventTopic = eventMem != null;
+            bool isDeepTalk = isEventTopic ? (intDef == InteractionDefOf.DeepTalk) : (topic != null && topic.isDeepTalk);
 
-            string topicPrompt = topic != null ? topic.prompts.RandomElement() : "small talk";
-            string topicContext = topic != null
-                ? ConversationContextResolver.ResolveAll(topic.contextKeys, initiator, recipient, initCore)
-                : "";
+            // Single-call generation (Conversations#31): one LLM round-trip emits the WHOLE alternating
+            // exchange plus the social offsets; downstream shows the first line and drip-feeds the rest
+            // while the pawns stay in range. The reply is always generated live (never pre-canned).
+
+            // Chit-chat lets ambient flavor (weather/meals/chores) in only for general small talk; deep
+            // talk, specific topics and event topics stay focused.
+            string initCtx = BuildParticipantContext(initiator, recipient, includeAmbient: !isDeepTalk && !isEventTopic, isDeepTalk: isDeepTalk);
+            string recipCtx = BuildParticipantContext(recipient, initiator, includeAmbient: !isDeepTalk && !isEventTopic, isDeepTalk: isDeepTalk);
+
+            string topicPrompt;
+            string topicContext;
+            if (isEventTopic)
+            {
+                topicPrompt = $"a recent event {initiator.Name.ToStringShort} lived through — \"{eventMem.summary}\". Talk about what actually happened and how you each feel about it now.";
+                topicContext = "";
+                conversation?.PushRecentTopic("event:" + (eventMem.memId ?? eventMem.summary));
+                topic = null; // no ChatTopicDef for an event topic; downstream label falls back to "Social"
+            }
+            else
+            {
+                topicPrompt = topic != null ? topic.prompts.RandomElement() : "small talk";
+                topicContext = topic != null
+                    ? ConversationContextResolver.ResolveAll(topic.contextKeys, initiator, recipient, initCore)
+                    : "";
+            }
             string ctxBlock = string.IsNullOrEmpty(topicContext) ? "" : $"\nTopic context:\n{topicContext}";
 
             string historyBlock = "";
@@ -484,6 +501,42 @@ namespace RimSynapse.Conversations.Patches
                     }
                 });
             });
+        }
+
+        // Event-driven topics (#34): how strongly a recent lived event outweighs generic small talk,
+        // and how far back "recent" reaches.
+        private const float EventTopicChance = 0.6f;
+        private const int EventTopicRecentTicks = 180000; // ~3 in-game days
+
+        /// <summary>With a high weight, pick a recent significant event the pawn actually experienced
+        /// (EventReflection memory, involvement-gated by Core#88) to talk about; null → use a normal
+        /// topic. Deep talk favours the weightiest/most burdensome; chit-chat a recent one. Skips events
+        /// already in the pair's recent-topic ring so the same ordeal isn't retold back-to-back.</summary>
+        private static WeightedMemory TrySelectEventMemory(SynapseCorePawnComp core, bool deep, ICollection<string> avoid)
+        {
+            if (core?.memories == null || core.memories.Count == 0) return null;
+            if (Rand.Value > EventTopicChance) return null;   // weight gate; ranking is deterministic below
+            return SelectEventMemoryCandidate(core, deep, avoid);
+        }
+
+        /// <summary>The deterministic candidate pick behind <see cref="TrySelectEventMemory"/> (split out
+        /// so the selection can be unit-tested without the Rand weight gate). Recent EventReflection
+        /// memories only; deep talk takes the weightiest, chit-chat a recent one; honours the avoid set.</summary>
+        public static WeightedMemory SelectEventMemoryCandidate(SynapseCorePawnComp core, bool deep, ICollection<string> avoid)
+        {
+            if (core?.memories == null || core.memories.Count == 0) return null;
+
+            long nowAbs = Find.TickManager != null ? Find.TickManager.TicksAbs : 0L;
+            var candidates = core.memories
+                .Where(m => m != null && m.memoryType == "EventReflection" && !string.IsNullOrEmpty(m.summary))
+                .Where(m => m.isLongTerm || nowAbs - m.absTick <= EventTopicRecentTicks)
+                .Where(m => avoid == null || !avoid.Contains("event:" + (m.memId ?? m.summary)))
+                .ToList();
+            if (candidates.Count == 0) return null;
+
+            if (deep)
+                return candidates.OrderByDescending(m => m.salience > 0f ? m.salience : m.weight).First();
+            return candidates.OrderByDescending(m => m.absTick).Take(5).RandomElement();
         }
 
         private static ChatTopicDef SelectRandomTopic(InteractionDef intDef, ICollection<string> avoid)
