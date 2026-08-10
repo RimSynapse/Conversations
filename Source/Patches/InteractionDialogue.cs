@@ -123,6 +123,19 @@ namespace RimSynapse.Conversations.Patches
                 }
             }
 
+            // Pre-staged event retelling (#35): with a chance, serve a ready-made retelling of a recent
+            // event for this pair instead of generating live — consumed once (unique per pair+event).
+            if ((RimSynapseConversationsMod.Settings?.preStageEventConversations ?? true) && !isSpedUp
+                && Rand.Value < (RimSynapseConversationsMod.Settings?.eventPreStageFireChance ?? 0.30f))
+            {
+                var staged = worldComp.PopEventPreGenForPair(initiator, recipient);
+                if (staged != null)
+                {
+                    ApplyStagedEventConversation(initiator, recipient, conversation, staged, currentTick);
+                    return;
+                }
+            }
+
             // Cache miss / caching disabled / game is sped up
             GenerateConversationAndApply(initiator, recipient, intDef, conversation, isSpedUp);
 
@@ -501,6 +514,126 @@ namespace RimSynapse.Conversations.Patches
                     }
                 });
             });
+        }
+
+        // ── Pre-staged event conversations (#35) ─────────────────────────
+        // Concrete events don't go stale, so we pre-generate per-pair retellings of a pawn's recent
+        // event and fire one at random per conversation start (unique per pair+event). Weather/current
+        // conditions are never pre-staged; only lived events.
+        private const int EventStageRecentTicks = 180000; // ~3 in-game days
+        private const int EventStagePartnersPerOwner = 2;
+        private const int EventStagePerPass = 2;
+
+        /// <summary>Called from the world component's rare tick: pre-stage a few retellings of colonists'
+        /// recent events to partners who don't have that event staged yet.</summary>
+        public static void TryStageEventConversations(SynapseConversationsWorldComponent worldComp)
+        {
+            if (worldComp == null || !worldComp.CanStageMoreEvents) return;
+            if (!(RimSynapseConversationsMod.Settings?.preStageEventConversations ?? true)) return;
+            var map = Find.CurrentMap;
+            if (map == null) return;
+
+            long nowAbs = Find.TickManager.TicksAbs;
+            int staged = 0;
+            var colonists = map.mapPawns.FreeColonists;
+            foreach (var owner in colonists)
+            {
+                if (staged >= EventStagePerPass || !worldComp.CanStageMoreEvents) break;
+                var core = owner.TryGetComp<SynapseCorePawnComp>();
+                if (core?.memories == null) continue;
+
+                var mem = core.memories
+                    .Where(m => m != null && m.memoryType == "EventReflection" && !string.IsNullOrEmpty(m.summary))
+                    .Where(m => m.isLongTerm || nowAbs - m.absTick <= EventStageRecentTicks)
+                    .OrderByDescending(m => m.absTick)
+                    .FirstOrDefault();
+                if (mem == null) continue;
+                string eventKey = mem.memId ?? mem.summary;
+
+                int partnersStaged = 0;
+                foreach (var partner in colonists)
+                {
+                    if (partner == owner || partner.Dead) continue;
+                    if (partnersStaged >= EventStagePartnersPerOwner || staged >= EventStagePerPass || !worldComp.CanStageMoreEvents) break;
+                    if (worldComp.PairHasStagedEvent(owner.ThingID, partner.ThingID, eventKey)) continue;
+                    QueueEventRetelling(worldComp, owner, partner, mem.summary, eventKey);
+                    partnersStaged++;
+                    staged++;
+                }
+            }
+        }
+
+        /// <summary>Generate (one LLM call) a short retelling where <paramref name="owner"/> recounts an
+        /// event to <paramref name="partner"/>, and store it as a pre-staged event conversation.</summary>
+        private static void QueueEventRetelling(SynapseConversationsWorldComponent worldComp, Pawn owner, Pawn partner, string eventSummary, string eventKey)
+        {
+            var ownerCore = owner.TryGetComp<SynapseCorePawnComp>();
+            var partnerCore = partner.TryGetComp<SynapseCorePawnComp>();
+            string ownerVoice = !string.IsNullOrEmpty(ownerCore?.voiceProfile) ? $"{owner.Name.ToStringShort} speaks like this: {ownerCore.voiceProfile}\n" : "";
+            string partnerVoice = !string.IsNullOrEmpty(partnerCore?.voiceProfile) ? $"{partner.Name.ToStringShort} speaks like this: {partnerCore.voiceProfile}\n" : "";
+
+            string systemPrompt =
+                $"Write a short, natural spoken exchange where {owner.Name.ToStringShort} tells {partner.Name.ToStringShort} about a recent event, and {partner.Name.ToStringShort} reacts.\n" +
+                ownerVoice + partnerVoice +
+                $"The event (from {owner.Name.ToStringShort}'s side): \"{eventSummary}\".\n" +
+                $"Two lines: {owner.Name.ToStringShort} recounts it, then {partner.Name.ToStringShort} responds. Each 1-2 sentences, honouring each speaker's voice. Do NOT include names, labels, or quotation marks in the line text.\n" +
+                $"Also estimate the social impact on {partner.Name.ToStringShort}: trustOffset (-2.0..2.0), familiarityOffset (1.0..3.0), affinityOffset (-2.0..2.0).\n" +
+                $"Return strictly valid JSON: {{ \"lines\": [\"{owner.Name.ToStringShort}'s line\", \"{partner.Name.ToStringShort}'s reply\"], \"trustOffset\": 0.0, \"familiarityOffset\": 0.0, \"affinityOffset\": 0.0 }}";
+
+            var apiMessages = new List<ChatMessage> { new ChatMessage { role = "system", content = systemPrompt } };
+            SynapseClient.ChatAsync(
+                RimSynapseConversationsMod.ModHandle,
+                apiMessages,
+                new ChatOptions { priority = 6, requestName = "Event retelling (pre-stage)", targetName = $"{owner.Name.ToStringShort} -> {partner.Name.ToStringShort}" },
+                result =>
+                {
+                    if (!result.success || string.IsNullOrEmpty(result.content)) return;
+                    LlmExchangeResponse ex = null;
+                    try { ex = JsonConvert.DeserializeObject<LlmExchangeResponse>(ExtractJson(result.content)); } catch { ex = null; }
+                    var lines = ex?.lines?.Where(l => !string.IsNullOrWhiteSpace(l)).Select(l => l.Trim()).ToList();
+                    if (lines == null || lines.Count < 2) return;
+
+                    SynapseGameComponent.Enqueue(() =>
+                    {
+                        worldComp.AddEventPreGen(new PreGeneratedConversation
+                        {
+                            initiatorId = owner.ThingID,
+                            recipientId = partner.ThingID,
+                            initiatorStatement = lines[0],
+                            recipientResponse = lines[1],
+                            eventKey = eventKey,
+                            eventSummary = eventSummary,
+                            trustOffset = ex.trustOffset,
+                            familiarityOffset = ex.familiarityOffset,
+                            affinityOffset = ex.affinityOffset,
+                            generatedAtTick = Find.TickManager.TicksGame,
+                            generatedAtAbsTick = Find.TickManager.TicksAbs
+                        });
+                    });
+                });
+        }
+
+        /// <summary>Apply a pre-staged event conversation instantly (like the pool path), consuming it.</summary>
+        private static void ApplyStagedEventConversation(Pawn initiator, Pawn recipient, PawnConversation conversation, PreGeneratedConversation staged, int currentTick)
+        {
+            conversation.messages.Add(new SynapseConversationMessage(staged.initiatorId, staged.initiatorStatement, currentTick));
+            conversation.messages.Add(new SynapseConversationMessage(staged.recipientId, staged.recipientResponse, currentTick));
+            conversation.lastTick = currentTick;
+            while (conversation.messages.Count > 50) conversation.messages.RemoveAt(0);
+
+            if (Find.TickManager.CurTimeSpeed == TimeSpeed.Normal)
+            {
+                UI.SpeechBubbleManager.AddBubble(initiator, recipient, staged.initiatorStatement, 0, 4.5f);
+                UI.SpeechBubbleManager.AddBubble(recipient, initiator, staged.recipientResponse, 270, 4.5f);
+            }
+
+            ApplyPsychologyOffsets(initiator, recipient, staged.trustOffset, staged.familiarityOffset);
+            ApplyVanillaAffinityThought(initiator, recipient, staged.affinityOffset);
+            PropagateContextMemories(initiator, recipient, "Event", staged.initiatorStatement);
+            conversation.PushRecentTopic("event:" + staged.eventKey);
+
+            float dist = (initiator.Spawned && recipient.Spawned) ? initiator.Position.DistanceTo(recipient.Position) : -1f;
+            ConversationMetrics.Add(initiator, recipient, null, dist, dist, 0, 0, "event-pool");
         }
 
         // Event-driven topics (#34): how strongly a recent lived event outweighs generic small talk,

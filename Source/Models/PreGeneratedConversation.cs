@@ -14,6 +14,10 @@ namespace RimSynapse.Conversations
         public string initiatorStatement;
         public string recipientResponse;
         public string topicDefName;
+        // Event anchoring (#35): non-null marks this as a pre-staged retelling of a specific episode.
+        // eventKey is the source EventReflection memory key so a pair tells a given event only once.
+        public string eventKey;
+        public string eventSummary;
         public bool isContinuation;
         public int generatedAtTick;       // TicksGame — drives TTL expiry
         public long generatedAtAbsTick;   // TicksAbs — drives significant-event invalidation vs memory absTick
@@ -28,6 +32,8 @@ namespace RimSynapse.Conversations
             Scribe_Values.Look(ref initiatorStatement, "initiatorStatement");
             Scribe_Values.Look(ref recipientResponse, "recipientResponse");
             Scribe_Values.Look(ref topicDefName, "topicDefName");
+            Scribe_Values.Look(ref eventKey, "eventKey");
+            Scribe_Values.Look(ref eventSummary, "eventSummary");
             Scribe_Values.Look(ref isContinuation, "isContinuation", false);
             Scribe_Values.Look(ref generatedAtTick, "generatedAtTick", 0);
             Scribe_Values.Look(ref generatedAtAbsTick, "generatedAtAbsTick", 0L);
