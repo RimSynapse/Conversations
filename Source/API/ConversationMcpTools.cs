@@ -236,6 +236,17 @@ namespace RimSynapse.Conversations.API
                 GetColonistInterestsHandler
             );
 
+            // Flag the state-mutating tools (#4): mood/relationship/inspiration change pawn thoughts,
+            // relations and inspirations; conversion and soothe change ideoligion certainty and mental
+            // state. Flagging them lets gated/autonomous runs refuse them (allowMutating:false), matching
+            // Core's mutating manifest for its own action tools.
+            SynapseToolRegistry.MarkMutating(
+                "trigger_mood_booster",
+                "trigger_relationship_shift",
+                "inspire_colonist",
+                "apply_conversion_attempt",
+                "attempt_mental_soothe");
+
             SynapseLogger.Message("[RimSynapse Chat] Registered MCP tools for DLCs and balanced actions.");
         }
 
