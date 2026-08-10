@@ -13,15 +13,88 @@ namespace RimSynapse.Conversations
         private Dictionary<string, bool> wasInFreezer = new Dictionary<string, bool>();
         private Dictionary<string, int> lastInteractionTick = new Dictionary<string, int>();
 
+        // Drip-feed playback (Conversations#31): a conversation is generated whole in one LLM call; the
+        // first line lands immediately and the remaining lines are played out here, one every
+        // LineIntervalTicks, but ONLY while the two pawns stay within MaxConversationRangeTiles — if they
+        // drift apart the conversation ends naturally. Not persisted (ephemeral in-flight state).
+        private const int LineIntervalTicks = 240;                 // ~4s at 1x, matches bubble duration
+        private const float MaxConversationRangeTiles = 8f;
+        private readonly List<ConversationPlayback> activePlaybacks = new List<ConversationPlayback>();
+
         public SynapseConversationsMapComponent(Map map) : base(map) {}
+
+        private class ConversationPlayback
+        {
+            public Pawn initiator;
+            public Pawn recipient;
+            public PawnConversation conversation;
+            public Queue<SynapseConversationMessage> remaining;
+            public int nextTick;
+        }
+
+        /// <summary>Queue the remaining (already speaker-resolved) lines of a conversation for drip-feed.</summary>
+        public void EnqueuePlayback(Pawn initiator, Pawn recipient, PawnConversation conversation, List<SynapseConversationMessage> remaining)
+        {
+            if (initiator == null || recipient == null || remaining == null || remaining.Count == 0) return;
+            activePlaybacks.Add(new ConversationPlayback
+            {
+                initiator = initiator,
+                recipient = recipient,
+                conversation = conversation,
+                remaining = new Queue<SynapseConversationMessage>(remaining),
+                nextTick = Find.TickManager.TicksGame + LineIntervalTicks
+            });
+        }
+
+        private void ProcessConversationPlaybacks()
+        {
+            if (activePlaybacks.Count == 0) return;
+            int now = Find.TickManager.TicksGame;
+
+            for (int i = activePlaybacks.Count - 1; i >= 0; i--)
+            {
+                var pb = activePlaybacks[i];
+
+                // End the exchange if a participant is gone or they've drifted out of conversational range.
+                if (pb.initiator == null || pb.recipient == null ||
+                    !pb.initiator.Spawned || !pb.recipient.Spawned || pb.initiator.Dead || pb.recipient.Dead ||
+                    pb.initiator.Position.DistanceTo(pb.recipient.Position) > MaxConversationRangeTiles)
+                {
+                    activePlaybacks.RemoveAt(i);
+                    continue;
+                }
+
+                if (now < pb.nextTick) continue;
+
+                var line = pb.remaining.Dequeue();
+                line.gameTick = now;
+                pb.conversation.messages.Add(line);
+                pb.conversation.lastTick = now;
+                while (pb.conversation.messages.Count > 50) pb.conversation.messages.RemoveAt(0);
+
+                if (Find.TickManager.CurTimeSpeed == TimeSpeed.Normal)
+                {
+                    bool fromInitiator = line.sender == pb.initiator.ThingID;
+                    Pawn speaker = fromInitiator ? pb.initiator : pb.recipient;
+                    Pawn listener = fromInitiator ? pb.recipient : pb.initiator;
+                    UI.SpeechBubbleManager.AddBubble(speaker, listener, line.message, fromInitiator ? 0 : 270, 4.5f);
+                }
+
+                if (pb.remaining.Count == 0) activePlaybacks.RemoveAt(i);
+                else pb.nextTick = now + LineIntervalTicks;
+            }
+        }
 
         public override void MapComponentTick()
         {
             base.MapComponentTick();
-            
+            if (Current.ProgramState != ProgramState.Playing) return;
+
+            // Drip-feed runs on its own line cadence, independent of the 250-tick trigger scan below.
+            ProcessConversationPlaybacks();
+
             // Only execute check every 250 ticks (TickRare equivalent) to keep CPU overhead low
             if (Find.TickManager.TicksGame % 250 != 0) return;
-            if (Current.ProgramState != ProgramState.Playing) return;
 
             foreach (var pawn in map.mapPawns.AllPawnsSpawned)
             {

@@ -60,6 +60,35 @@ namespace RimSynapse.Conversations.UI
         [DebugAction("RimSynapse", "Conversations: Force deep talk (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void ForceDeepTalk(Pawn p) => ForceWithNearest(p, InteractionDefOf.DeepTalk);
 
+        /// <summary>Playtest helper (#31): teleport the nearest colonist adjacent to the clicked pawn, then
+        /// force a chit-chat, so the multi-line drip-feed can actually play out in range.</summary>
+        [DebugAction("RimSynapse", "Conversations: Force nearby exchange (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceNearbyExchange(Pawn p)
+        {
+            if (p == null || p.Map == null) return;
+            Pawn other = p.Map.mapPawns?.FreeColonists?
+                .Where(o => o != p && o.RaceProps.Humanlike && o.Spawned)
+                .OrderBy(o => o.Position.DistanceToSquared(p.Position))
+                .FirstOrDefault();
+            if (other == null)
+            {
+                RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] No conversation partner for {p.LabelShort}.");
+                return;
+            }
+
+            IntVec3 dest = p.Position;
+            foreach (var adj in GenAdj.CardinalDirections)
+            {
+                var c = p.Position + adj;
+                if (c.InBounds(p.Map) && c.Standable(p.Map)) { dest = c; break; }
+            }
+            other.Position = dest;
+            other.Notify_Teleported(false, false);
+            RimSynapse.SynapseLogger.Info("conversations",
+                $"[RimSynapse] Teleported {other.LabelShort} next to {p.LabelShort} (dist {p.Position.DistanceTo(other.Position):F1}), forcing chit-chat.");
+            Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.ForceConversation(p, other, InteractionDefOf.Chitchat);
+        }
+
         private static void ForceWithNearest(Pawn p, InteractionDef intDef)
         {
             if (p == null) return;
