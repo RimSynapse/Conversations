@@ -316,7 +316,13 @@ namespace RimSynapse.Conversations.Patches
             string thoughtsCsv = topThoughts.Count > 0 ? string.Join(", ", topThoughts) : "none";
             string memoryLine = ConversationContextResolver.BaseMemoryLine(core, isDeepTalk) ?? "none";
 
-            string block = $"{p.Name.ToStringShort} — personality: {traits} (Psychology: {psych}); " +
+            // Voice (#33): Psychology-authored speaking style. When present it leads the block so the
+            // model anchors on how this pawn talks; falls back to traits/psychology when absent.
+            string voiceLine = !string.IsNullOrEmpty(core?.voiceProfile)
+                ? $"speaks like this — {core.voiceProfile} "
+                : "";
+
+            string block = $"{p.Name.ToStringShort} — {voiceLine}personality: {traits} (Psychology: {psych}); " +
                 $"mood: {mood} (thoughts: {thoughtsCsv}); exhaustion: {exhaustion}; " +
                 $"opinion of {other.Name.ToStringShort}: {opinion} (-100 to 100)";
 
@@ -954,7 +960,9 @@ namespace RimSynapse.Conversations.Patches
             string initiatorTraits = string.Join(", ", initiator.story?.traits?.allTraits?.Select(t => t.Label) ?? Enumerable.Empty<string>());
             int initOpinionOfRecip = initiator.relations?.OpinionOf(recipient) ?? 0;
 
+            string initVoice = !string.IsNullOrEmpty(initCore?.voiceProfile) ? $"Speaks like this: {initCore.voiceProfile}\n" : "";
             string systemPrompt = $"You are simulating the RimWorld pawn {initiator.Name.ToStringShort}.\n" +
+                initVoice +
                 $"Personality: {initiatorTraits} (Psychology: {initPsych})\n" +
                 $"Current Mood: {moodContext}\n" +
                 $"Opinion of {recipient.Name.ToStringShort}: {initOpinionOfRecip} (-100 to 100)\n\n" +
@@ -1026,7 +1034,9 @@ namespace RimSynapse.Conversations.Patches
                     string recipientTraits = string.Join(", ", recipient.story?.traits?.allTraits?.Select(t => t.Label) ?? Enumerable.Empty<string>());
                     int recipOpinionOfInit = recipient.relations?.OpinionOf(initiator) ?? 0;
 
+                    string recipVoice = !string.IsNullOrEmpty(recipCore?.voiceProfile) ? $"{recipient.Name.ToStringShort} speaks like this: {recipCore.voiceProfile}\n" : "";
                     string promptB = $"You are simulating the RimWorld pawn {recipient.Name.ToStringShort} responding to {initiator.Name.ToStringShort}.\n\n" +
+                        recipVoice +
                         $"Context prompt:\n" +
                         $"{initiator.Name.ToStringShort} : {statementA} : {recipOpinionOfInit} : {recipientTraits} (Psychology: {recipPsych}) : {B_moodContext} (Exhaustion: {B_exhaustionState}, Last Eaten: {B_lastEaten})\n\n" +
                         $"Based on this context, craft exactly 1 or 2 sentences to respond to {initiator.Name.ToStringShort}'s statement about the environmental trigger.\n" +
