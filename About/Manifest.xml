@@ -6,8 +6,8 @@
   Interoperable with the community "Version Checker" mod.
 -->
 <Manifest>
-  <version>0.7.1</version>
-  <coreVersion>0.7.1</coreVersion>
+  <version>0.8.0</version>
+  <coreVersion>0.8.0</coreVersion>
   <manifestUri>https://raw.githubusercontent.com/RimSynapse/Conversations/main/About/Manifest.xml</manifestUri>
   <downloadUri>https://github.com/RimSynapse/Conversations/releases/latest</downloadUri>
   <workshopId>3768363934</workshopId>

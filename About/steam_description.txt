@@ -1,5 +1,5 @@
 [b]Discord Community:[/b] [url=https://discord.gg/eVBebZ2N9s]https://discord.gg/eVBebZ2N9s[/url]
-[b]Version:[/b] v0.7.1 (Target: RimWorld 1.6)
+[b]Version:[/b] v0.8.0 (Target: RimWorld 1.6)
 
 [h1]RimSynapse - Conversations[/h1]
 [b][url=https://github.com/RimSynapse/Conversations/wiki]Official Wiki and Documentation[/url][/b]
@@ -21,13 +21,24 @@ Bring the social life of your colony to life! RimSynapse Conversations intercept
 
 [h2]Roadmap[/h2]
 [list]
-[*] [b]0.8 - Demographics, News and Narrative Voice:[/b] An expanded agent toolset - chat-history and colonist-interest retrieval, and universe and world actions the storyteller can take in-world.
 [*] [b]0.9 - Factions and Living Societies:[/b] Auto-running therapy sessions land with Psychology, and conversations react to faction and social events.
 [*] [b]0.10 - Cross-Mod Capability Passes:[/b] Another pass over how dialogue ties psychology, factions and news together.
 [/list]
 These ship when they are ready - no dates.
 
 ---
+
+[h2]Changelog (v0.8.0) - Event-Driven Talk, Multi-Line Delivery and Voice[/h2]
+[list]
+[*] NEW - Event-driven conversations: chit-chat and deep-talk topics are now driven by what's actually happening in your colony, with recent events weighted high and conversations pre-staged around notable moments.
+[*] NEW - Single-call multi-line conversations: a whole exchange is generated at once and drip-fed line by line to pawns in range, instead of one-shot back-and-forths.
+[*] NEW - Conversations now honour the Psychology-authored pawn voice, so each colonist sounds like themselves.
+[*] NEW - Two new agent tools: get_chat_history and get_colonist_interests.
+[*] Changed: Universe Actions now flag mutating actions, so autonomous runs respect the mutation gate.
+[*] Fixed: a no-op Universe Action mood booster now actually applies.
+[*] Performance: de-batched the per-tick environmental scan and cached reflection lookups.
+[*] Requires Core v0.8.0.
+[/list]
 
 [h2]Changelog (v0.7.1) - Deeper, more personal conversations[/h2]
 [list]
