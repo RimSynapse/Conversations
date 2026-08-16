@@ -716,7 +716,7 @@ namespace RimSynapse.Conversations.Patches
             });
         }
 
-        private static void ApplyPsychologyOffsets(Pawn initiator, Pawn recipient, float trustOffset, float familiarityOffset)
+        internal static void ApplyPsychologyOffsets(Pawn initiator, Pawn recipient, float trustOffset, float familiarityOffset)
         {
             try
             {
@@ -769,7 +769,7 @@ namespace RimSynapse.Conversations.Patches
             }
         }
 
-        private static void ApplyVanillaAffinityThought(Pawn initiator, Pawn recipient, float affinityOffset)
+        internal static void ApplyVanillaAffinityThought(Pawn initiator, Pawn recipient, float affinityOffset)
         {
             try
             {
@@ -798,7 +798,7 @@ namespace RimSynapse.Conversations.Patches
             }
         }
 
-        private static void PropagateContextMemories(Pawn initiator, Pawn recipient, string topicName, string reply)
+        internal static void PropagateContextMemories(Pawn initiator, Pawn recipient, string topicName, string reply)
         {
             int earshotRange = CalculateEarshotRange(initiator);
 
@@ -983,7 +983,7 @@ namespace RimSynapse.Conversations.Patches
             return string.Join(", ", list);
         }
 
-        private static string ExtractJson(string content)
+        internal static string ExtractJson(string content)
         {
             if (string.IsNullOrEmpty(content)) return content;
             

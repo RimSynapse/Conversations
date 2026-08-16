@@ -45,6 +45,14 @@ namespace RimSynapse.Conversations
                 case "recipientRelationship":return DescribeRelationship(pawn, recipient);
                 case "personalitySummary":   return string.IsNullOrEmpty(core?.personalitySummary) ? null : $"Self-image: {core.personalitySummary}";
                 case "residency":            return DescribeResidency(pawn);
+                // Prisoner-side keys (Conversations#42): read the captive's actual situation so warden
+                // dialogue is about THIS prisoner, not generic text. All degrade to null when the pawn
+                // isn't a captive or the relevant DLC is inactive.
+                case "resistanceWill":       return DescribeResistanceWill(pawn);
+                case "captivity":            return DescribeCaptivity(pawn);
+                case "prisonerComfort":      return DescribePrisonerComfort(pawn);
+                case "ideoConflict":         return DescribeIdeoConflict(pawn);
+                case "captureMemory":        return DescribeCaptureMemory(core);
                 default:                     return null; // unknown key — ignored, so modders can extend freely
             }
         }
@@ -184,6 +192,129 @@ namespace RimSynapse.Conversations
         {
             bool resident = RimSynapse.SynapseCoreProviders.IsResident(pawn);
             return resident ? "They are a settled resident of this colony." : "They are not a formal resident here.";
+        }
+
+        // ── Prisoner-side reads (Conversations#42) ───────────────────────
+        /// <summary>Recruitment resistance, enslavement will, and ideological certainty — the numbers the
+        /// warden is actually working against. Will/certainty need Ideology; null for a non-captive.</summary>
+        private static string DescribeResistanceWill(Pawn pawn)
+        {
+            var g = pawn?.guest;
+            if (g == null || (!pawn.IsPrisonerOfColony && !pawn.IsSlaveOfColony)) return null;
+            var parts = new List<string>();
+            if (pawn.IsPrisonerOfColony)
+            {
+                parts.Add($"resistance to recruitment {g.resistance:F1}");
+                if (ModsConfig.IdeologyActive) parts.Add($"will to resist enslavement {g.will:F1}");
+            }
+            if (ModsConfig.IdeologyActive && pawn.ideo != null)
+                parts.Add($"ideological certainty {pawn.ideo.Certainty:P0}");
+            return parts.Count > 0 ? "Captive resolve: " + string.Join(", ", parts) + "." : null;
+        }
+
+        /// <summary>How they're held and under what warden policy — the coercive frame of the exchange.</summary>
+        private static string DescribeCaptivity(Pawn pawn)
+        {
+            if (pawn == null) return null;
+            if (pawn.IsSlaveOfColony) return "Standing: a slave of this colony.";
+            if (pawn.IsPrisonerOfColony)
+            {
+                string mode = pawn.guest?.ExclusiveInteractionMode?.label;
+                return mode != null
+                    ? $"Standing: a prisoner here; current warden policy toward them is \"{mode}\"."
+                    : "Standing: a prisoner of this colony.";
+            }
+            return null;
+        }
+
+        /// <summary>The material conditions of captivity — hunger, comfort, bed and clothing. These are the
+        /// concrete levers a prisoner names when negotiating recruitment (Conversations#42, playtest note 5).</summary>
+        private static string DescribePrisonerComfort(Pawn pawn)
+        {
+            if (pawn == null || (!pawn.IsPrisonerOfColony && !pawn.IsSlaveOfColony)) return null;
+            var parts = new List<string>();
+
+            float hunger = pawn.needs?.food?.CurLevelPercentage ?? 1f;
+            parts.Add(hunger < 0.25f ? "going hungry" : hunger < 0.6f ? "underfed" : "adequately fed");
+
+            var comfort = pawn.needs?.comfort;
+            if (comfort != null)
+            {
+                float c = comfort.CurLevel;
+                parts.Add(c < 0.3f ? "physically uncomfortable" : c < 0.6f ? "middling comfort" : "comfortable enough");
+            }
+
+            var bed = pawn.ownership?.OwnedBed;
+            if (bed == null) parts.Add("no bed of their own");
+            else
+            {
+                var cq = bed.TryGetComp<CompQuality>();
+                string bedQ = cq != null ? cq.Quality.GetLabel() + " " : "";
+                parts.Add($"sleeping on a {bedQ}{bed.def.label}");
+                var room = bed.GetRoom();
+                if (room != null && !room.PsychologicallyOutdoors)
+                {
+                    float imp = 0f;
+                    try { imp = room.GetStat(RoomStatDefOf.Impressiveness); } catch { }
+                    parts.Add(imp < 20f ? "in a dreary cell" : imp < 50f ? "in a plain cell" : "in a decent cell");
+                }
+            }
+
+            var worn = pawn.apparel?.WornApparel;
+            if (worn == null || worn.Count == 0) parts.Add("wearing nothing to speak of");
+            else
+            {
+                float worstCond = worn.Min(a => a.MaxHitPoints > 0 ? (float)a.HitPoints / a.MaxHitPoints : 1f);
+                parts.Add(worstCond < 0.35f ? "in tattered clothes" : worstCond < 0.7f ? "in worn clothes" : "reasonably clothed");
+            }
+
+            return "Conditions: " + string.Join(", ", parts) + ".";
+        }
+
+        /// <summary>Where the prisoner's own ideoligion actually clashes with the colony's — real memes on
+        /// each side, not a generic pitch. Null without Ideology or when they already share a faith.</summary>
+        private static string DescribeIdeoConflict(Pawn pawn)
+        {
+            if (!ModsConfig.IdeologyActive || pawn?.Ideo == null) return null;
+            var colonyIdeo = Faction.OfPlayer?.ideos?.PrimaryIdeo;
+            if (colonyIdeo == null) return null;
+            if (pawn.Ideo == colonyIdeo) return "Faith: they already follow the colony's ideoligion.";
+
+            var colonyMemes = colonyIdeo.memes?.Select(m => m.label).ToList() ?? new List<string>();
+            var theirMemes = pawn.Ideo.memes?.Select(m => m.label).ToList() ?? new List<string>();
+            var colonyOnly = colonyMemes.Except(theirMemes).Take(4).ToList();
+            var theirOnly = theirMemes.Except(colonyMemes).Take(4).ToList();
+
+            string colonySide = colonyOnly.Count > 0 ? $" (emphasising {string.Join(", ", colonyOnly)})" : "";
+            string theirSide = theirOnly.Count > 0 ? $" (holding to {string.Join(", ", theirOnly)})" : "";
+            return $"Faith clash: the colony follows {colonyIdeo.name}{colonySide}; they follow {pawn.Ideo.name}{theirSide}. " +
+                   $"Their certainty {pawn.ideo?.Certainty ?? 1f:P0}.";
+        }
+
+        /// <summary>If a Core EventReflection memory records how this pawn was captured, surface it plus a
+        /// rough duration since — so captivity dialogue can reference their actual seizure. Null otherwise.</summary>
+        private static string DescribeCaptureMemory(SynapseCorePawnComp core)
+        {
+            if (core?.memories == null || core.memories.Count == 0) return null;
+            long nowAbs = Find.TickManager != null ? Find.TickManager.TicksAbs : 0L;
+            var mem = core.memories
+                .Where(m => m != null && !string.IsNullOrEmpty(m.summary))
+                .Where(m => LooksLikeCapture(m.summary) ||
+                            (m.tags != null && m.tags.Any(t => LooksLikeCapture(t))))
+                .OrderByDescending(m => m.absTick)
+                .FirstOrDefault();
+            if (mem == null) return null;
+            int days = (int)((nowAbs - mem.absTick) / TicksPerDay);
+            string when = days <= 0 ? "within the last day" : days == 1 ? "about a day ago" : $"about {days} days ago";
+            return $"Capture: {mem.summary} ({when}).";
+        }
+
+        private static bool LooksLikeCapture(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return false;
+            s = s.ToLowerInvariant();
+            return s.Contains("captur") || s.Contains("imprison") || s.Contains("taken prisoner")
+                || s.Contains("abduct") || s.Contains("seized");
         }
     }
 }
