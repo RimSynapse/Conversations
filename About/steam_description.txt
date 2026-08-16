@@ -20,9 +20,11 @@ Bring the social life of your colony to life! RimSynapse Conversations intercept
 ---
 
 [h2]Roadmap[/h2]
+Conversations tracks its own release milestones. What ships next is scoped to dialogue features in this mod - other RimSynapse mods keep their own roadmaps.
 [list]
-[*] [b]0.9 - Factions and Living Societies:[/b] Auto-running therapy sessions land with Psychology, and conversations react to faction and social events.
-[*] [b]0.10 - Cross-Mod Capability Passes:[/b] Another pass over how dialogue ties psychology, factions and news together.
+[*] [b]0.9 - Group Conversations:[/b] three-way and small-group dialogue around meal halls, campfires and huddled shelters, with turn-taking and reactions from listeners in earshot.
+[*] [b]0.10 - Expansion Dialects:[/b] activate the DLC-specific flavours listed in the compatibility matrix - noble tone demands and psycast interjections (Royalty), faith debates and conversion attempts (Ideology), xenotype dialects and mechanitor comm chatter (Biotech), void whispers (Anomaly).
+[*] [b]Backlog:[/b] player-to-pawn direct dialogue, more Universe Actions (relationship shifts, inspire-to-job), and additional environmental / event triggers.
 [/list]
 These ship when they are ready - no dates.
 
