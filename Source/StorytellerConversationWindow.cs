@@ -143,6 +143,18 @@ namespace RimSynapse.Conversations
                 }
             };
 
+            // Personality profile + difficulty (ceiling and mood mandate) from Core (#66).
+            // Empty under a non-RimSynapse storyteller, so nothing is injected there.
+            string agentContext = SynapseStorytellerContext.BuildAgentContext(Find.CurrentMap);
+            if (!string.IsNullOrEmpty(agentContext))
+            {
+                apiMessages.Add(new ChatMessage
+                {
+                    role = "system",
+                    content = agentContext
+                });
+            }
+
             string colonyContext = SynapseCoreContext.GetContextText("StorytellerChat");
             if (!string.IsNullOrEmpty(colonyContext))
             {
