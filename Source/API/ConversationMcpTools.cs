@@ -203,6 +203,50 @@ namespace RimSynapse.Conversations.API
                 GetOrbitalHazardsHandler
             );
 
+            // 12. get_chat_history (read-only)
+            SynapseToolRegistry.RegisterTool(
+                "get_chat_history",
+                "Returns a colonist's recent pawn-to-pawn conversation messages, newest-first. Read-only.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        pawnName = new { type = "string", description = "Name of the colonist whose chat history to retrieve" },
+                        maxMessages = new { type = "number", description = "Optional cap on messages returned (default 20, newest-first)" }
+                    },
+                    required = new[] { "pawnName" }
+                },
+                GetChatHistoryHandler
+            );
+
+            // 13. get_colonist_interests (read-only)
+            SynapseToolRegistry.RegisterTool(
+                "get_colonist_interests",
+                "Returns a colonist's conversational interests derived from Minor/Major-passion skills and traits. Read-only.",
+                new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        pawnName = new { type = "string", description = "Name of the colonist whose interests to retrieve" }
+                    },
+                    required = new[] { "pawnName" }
+                },
+                GetColonistInterestsHandler
+            );
+
+            // Flag the state-mutating tools (#4): mood/relationship/inspiration change pawn thoughts,
+            // relations and inspirations; conversion and soothe change ideoligion certainty and mental
+            // state. Flagging them lets gated/autonomous runs refuse them (allowMutating:false), matching
+            // Core's mutating manifest for its own action tools.
+            SynapseToolRegistry.MarkMutating(
+                "trigger_mood_booster",
+                "trigger_relationship_shift",
+                "inspire_colonist",
+                "apply_conversion_attempt",
+                "attempt_mental_soothe");
+
             SynapseLogger.Message("[RimSynapse Chat] Registered MCP tools for DLCs and balanced actions.");
         }
 

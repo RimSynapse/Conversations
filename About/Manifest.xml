@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  RimSynapse compatibility manifest (companion file to About.xml, which has no version field).
+  Read at load by RimSynapse Core's SynapseCompatChecker.
+
+  Versioning: <version> is this mod's own release milestone and is bumped on Conversations'
+  schedule alone - it is not tied to Core, Psychology, Factions or any other RimSynapse mod.
+  <coreVersion> is a separate field: the minimum Core version this build requires at runtime.
+  Bump <coreVersion> only when Conversations actually needs a new Core API - not because Core
+  cut a release.
+
+  Interoperable with the community "Version Checker" mod.
+-->
+<Manifest>
+  <version>0.8.0</version>
+  <coreVersion>0.8.0</coreVersion>
+  <manifestUri>https://raw.githubusercontent.com/RimSynapse/Conversations/main/About/Manifest.xml</manifestUri>
+  <downloadUri>https://github.com/RimSynapse/Conversations/releases/latest</downloadUri>
+  <workshopId>3768363934</workshopId>
+</Manifest>

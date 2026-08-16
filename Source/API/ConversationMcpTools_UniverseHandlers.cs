@@ -29,22 +29,25 @@ namespace RimSynapse.Conversations.API
                 }
                 s_MoodCooldowns[key] = currentTick;
 
+                // Use the *Mood memory thoughts (Thought_Memory), not the social KindWords/Slighted
+                // (Thought_MemorySocial): a mood booster targets one pawn, and a social thought added
+                // without an otherPawn silently fails to stick. KindWordsMood/InsultedMood apply cleanly.
                 if (args.effectType == "boost")
                 {
-                    var kindWordsDef = DefDatabase<ThoughtDef>.GetNamed("KindWords", false);
-                    if (kindWordsDef != null)
+                    var boostDef = DefDatabase<ThoughtDef>.GetNamed("KindWordsMood", false);
+                    if (boostDef != null)
                     {
-                        pawn.needs?.mood?.thoughts?.memories?.TryGainMemory(kindWordsDef);
-                        return "{\"success\": \"Applied Kind Words mood boost (+5).\"}";
+                        pawn.needs?.mood?.thoughts?.memories?.TryGainMemory(boostDef);
+                        return "{\"success\": \"Applied Kind Words mood boost.\"}";
                     }
                 }
                 else
                 {
-                    var slightedDef = DefDatabase<ThoughtDef>.GetNamed("Slighted", false);
-                    if (slightedDef != null)
+                    var penaltyDef = DefDatabase<ThoughtDef>.GetNamed("InsultedMood", false);
+                    if (penaltyDef != null)
                     {
-                        pawn.needs?.mood?.thoughts?.memories?.TryGainMemory(slightedDef);
-                        return "{\"success\": \"Applied Slighted mood penalty.\"}";
+                        pawn.needs?.mood?.thoughts?.memories?.TryGainMemory(penaltyDef);
+                        return "{\"success\": \"Applied Insulted mood penalty.\"}";
                     }
                 }
                 return "{\"error\": \"Failed to apply mood effect.\"}";

@@ -60,6 +60,35 @@ namespace RimSynapse.Conversations.UI
         [DebugAction("RimSynapse", "Conversations: Force deep talk (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void ForceDeepTalk(Pawn p) => ForceWithNearest(p, InteractionDefOf.DeepTalk);
 
+        /// <summary>Playtest helper (#31): teleport the nearest colonist adjacent to the clicked pawn, then
+        /// force a chit-chat, so the multi-line drip-feed can actually play out in range.</summary>
+        [DebugAction("RimSynapse", "Conversations: Force nearby exchange (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceNearbyExchange(Pawn p)
+        {
+            if (p == null || p.Map == null) return;
+            Pawn other = p.Map.mapPawns?.FreeColonists?
+                .Where(o => o != p && o.RaceProps.Humanlike && o.Spawned)
+                .OrderBy(o => o.Position.DistanceToSquared(p.Position))
+                .FirstOrDefault();
+            if (other == null)
+            {
+                RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] No conversation partner for {p.LabelShort}.");
+                return;
+            }
+
+            IntVec3 dest = p.Position;
+            foreach (var adj in GenAdj.CardinalDirections)
+            {
+                var c = p.Position + adj;
+                if (c.InBounds(p.Map) && c.Standable(p.Map)) { dest = c; break; }
+            }
+            other.Position = dest;
+            other.Notify_Teleported(false, false);
+            RimSynapse.SynapseLogger.Info("conversations",
+                $"[RimSynapse] Teleported {other.LabelShort} next to {p.LabelShort} (dist {p.Position.DistanceTo(other.Position):F1}), forcing chit-chat.");
+            Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.ForceConversation(p, other, InteractionDefOf.Chitchat);
+        }
+
         private static void ForceWithNearest(Pawn p, InteractionDef intDef)
         {
             if (p == null) return;
@@ -81,6 +110,35 @@ namespace RimSynapse.Conversations.UI
         public static void DumpMetrics()
         {
             RimSynapse.SynapseLogger.Info("conversations", ConversationMetrics.Summary());
+        }
+
+        /// <summary>
+        /// 0.8 perf validation: force the environmental-trigger scan (darkness/freezer) for every
+        /// colonist now, bypassing the per-pawn hash-interval gate, and log how many were evaluated.
+        /// </summary>
+        [DebugAction("RimSynapse", "Conversations: Force environmental scan (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceEnvironmentalScan()
+        {
+            var mc = Find.CurrentMap?.GetComponent<SynapseConversationsMapComponent>();
+            if (mc == null) { RimSynapse.SynapseLogger.Info("conversations", "[RimSynapse] No conversations map component."); return; }
+            int n = mc.ForceEnvironmentalScan();
+            RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] Forced environmental scan evaluated {n} colonist(s).");
+        }
+
+        /// <summary>
+        /// Exercises the read-only agent tools (Conversations#10) headlessly: runs get_chat_history
+        /// and get_colonist_interests on the clicked pawn and logs the JSON each returns.
+        /// </summary>
+        [DebugAction("RimSynapse", "Conversations: Dump agent read-tools (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void DumpAgentReadTools(Pawn p)
+        {
+            if (p == null) return;
+            string args = "{\"pawnName\": \"" + p.LabelShort + "\"}";
+            RimSynapse.SynapseLogger.Info("conversations", $"--- Agent read-tools for {p.LabelShort} ---");
+            RimSynapse.SynapseLogger.Info("conversations",
+                "get_chat_history      : " + SynapseToolRegistry.ExecuteTool("get_chat_history", args, allowMutating: false));
+            RimSynapse.SynapseLogger.Info("conversations",
+                "get_colonist_interests: " + SynapseToolRegistry.ExecuteTool("get_colonist_interests", args, allowMutating: false));
         }
 
         [DebugAction("RimSynapse", "Conversations: Dump pre-gen pool (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]

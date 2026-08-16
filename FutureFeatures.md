@@ -6,10 +6,14 @@ This document compiles the roadmap, completed features, and backlog items for **
 
 ## 1. Accomplished Features
 
-### Direct Storyteller Dialogue UI
-*   **Window:** Floating, draggable, and resizeable chat window (`StorytellerChatWindow.cs`) allowing players to talk directly to the storyteller.
-*   **Storyteller Voice:** Integration with audio streaming engines (OpenAI, ElevenLabs, or local PCM audio playback via C#) to play storyteller responses.
-*   **Context Integration:** Feeds overall colony context (wealth, nutrition, pawns, etc.) from Core into the storyteller prompt.
+### Direct Storyteller Dialogue UI - MIGRATING TO CORE
+The player-facing storyteller chat window originally shipped inside Conversations
+(`StorytellerConversationWindow.cs`, `SynapseConversationsWorldComponent` chat state,
+the storyteller-chat MCP handlers, and the `Patch_MapInterface_MapInterfaceOnGUI`
+gizmo hook) is being moved to Core. Conversations owns pawn-to-pawn dialogue only.
+
+Tracking issue: RimSynapse/Core#99 (this migration). Design umbrella:
+RimSynapse/Core#68 (two-agent Chat + Storyteller architecture).
 
 ### Pawn-to-Pawn Contextual Dialogues
 *   **Social Hook:** Intercepts vanilla social interactions (`Pawn_InteractionsTracker.TryInteractWith`) via Harmony.

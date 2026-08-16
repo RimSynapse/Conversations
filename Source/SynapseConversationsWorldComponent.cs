@@ -55,6 +55,8 @@ namespace RimSynapse.Conversations
             PrunePool(Find.TickManager.TicksAbs, tick);
             // Top-up is owned by the generator (patch class); it queues low-priority fills on idle cycles.
             Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.TryTopUpPreGenPool(this);
+            // Pre-stage retellings of recent events for pairs that don't have them yet (#35).
+            Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.TryStageEventConversations(this);
         }
 
         private static string PairKey(string a, string b)
@@ -104,8 +106,52 @@ namespace RimSynapse.Conversations
             for (int i = preGenPool.Count - 1; i >= 0; i--)
             {
                 var p = preGenPool[i];
+                if (!string.IsNullOrEmpty(p.eventKey)) continue;   // event pre-gens fire only via the event path (#35)
                 if (PairKey(p.initiatorId, p.recipientId) != k) continue;
                 if (IsExpiredOrStale(p, a, b, nowAbs, nowTick)) { preGenPool.RemoveAt(i); continue; }
+                preGenPool.RemoveAt(i);
+                return p;
+            }
+            return null;
+        }
+
+        // ── Event pre-staging (#35) ──────────────────────────────────────
+        // Concrete events don't go stale, so we pre-stage per-pair retellings of recent episodes and
+        // fire one at random per conversation start. Kept in the same pool (TTL/prune apply) but under a
+        // separate total bound and popped only via the event path.
+        public const int MaxEventPreGensTotal = 24;
+
+        public int EventPreGenCount => preGenPool.Count(p => !string.IsNullOrEmpty(p.eventKey));
+        public bool CanStageMoreEvents => EventPreGenCount < MaxEventPreGensTotal;
+
+        /// <summary>A pair tells any given event only once — has this pair already got it staged?</summary>
+        public bool PairHasStagedEvent(string idA, string idB, string eventKey)
+        {
+            if (string.IsNullOrEmpty(eventKey)) return false;
+            string k = PairKey(idA, idB);
+            foreach (var p in preGenPool)
+                if (p.eventKey == eventKey && PairKey(p.initiatorId, p.recipientId) == k) return true;
+            return false;
+        }
+
+        public void AddEventPreGen(PreGeneratedConversation conv)
+        {
+            if (conv == null || string.IsNullOrEmpty(conv.eventKey)) return;
+            if (!CanStageMoreEvents) return;
+            if (PairHasStagedEvent(conv.initiatorId, conv.recipientId, conv.eventKey)) return;
+            preGenPool.Add(conv);
+        }
+
+        /// <summary>Take one staged event retelling for this pair (any event), consuming it.</summary>
+        public PreGeneratedConversation PopEventPreGenForPair(Pawn a, Pawn b)
+        {
+            if (a == null || b == null) return null;
+            string k = PairKey(a.ThingID, b.ThingID);
+            for (int i = preGenPool.Count - 1; i >= 0; i--)
+            {
+                var p = preGenPool[i];
+                if (string.IsNullOrEmpty(p.eventKey)) continue;
+                if (PairKey(p.initiatorId, p.recipientId) != k) continue;
                 preGenPool.RemoveAt(i);
                 return p;
             }
