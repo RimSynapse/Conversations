@@ -12,9 +12,9 @@ namespace RimSynapse.Conversations
     /// </summary>
     public class SynapseConversationsWorldComponent : WorldComponent
     {
-        public List<SynapseConversationMessage> chatHistory = new List<SynapseConversationMessage>();
+        // Player↔storyteller chat state moved to Core's SynapseCoreWorldComponent (Core #99).
+        // This component now owns pawn-to-pawn dialogue state only.
         public List<PawnConversation> pawnConversations = new List<PawnConversation>();
-        public bool chatWindowOpen;
 
         // ── Pre-seed pool (Conversations#28) ─────────────────────────────
         public List<PreGeneratedConversation> preGenPool = new List<PreGeneratedConversation>();
@@ -33,14 +33,11 @@ namespace RimSynapse.Conversations
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Collections.Look(ref chatHistory, "chatHistory", LookMode.Deep);
             Scribe_Collections.Look(ref pawnConversations, "pawnConversations", LookMode.Deep);
             Scribe_Collections.Look(ref preGenPool, "preGenPool", LookMode.Deep);
-            Scribe_Values.Look(ref chatWindowOpen, "chatWindowOpen", false);
 
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
-                if (chatHistory == null) chatHistory = new List<SynapseConversationMessage>();
                 if (pawnConversations == null) pawnConversations = new List<PawnConversation>();
                 if (preGenPool == null) preGenPool = new List<PreGeneratedConversation>();
             }
