@@ -802,39 +802,24 @@ namespace RimSynapse.Conversations.Patches
         {
             int earshotRange = CalculateEarshotRange(initiator);
 
-            // Feed to initiator
-            var initCore = initiator.TryGetComp<SynapseCorePawnComp>();
-            if (initCore != null)
-            {
-                initCore.memories.Add(new WeightedMemory
-                {
-                    summary = $"Said to {recipient.Name.ToStringShort} during a {topicName} conversation: \"{reply}\"",
-                    memoryType = "social",
-                    tags = new List<string> { "conversation", recipient.ThingID },
-                    absTick = Utils.SynapseDateHelper.GameTickToAbsTick(Find.TickManager.TicksGame),
-                    gameTick = Find.TickManager.TicksGame,
-                    weight = 0.10f,
-                    baseWeight = 0.10f,
-                    decayRate = 0.10f
-                });
-            }
+            // Memory mechanics live in Core (Core #80): AddMemoryAbout keys the OTHER pawn via the
+            // canonical subject id and routes through the indexed AddMemory, so a chit-chat about a
+            // pawn can consolidate with later memories about them (e.g. their death). Conversations
+            // just triggers it — no hand-rolled WeightedMemory, no ThingID-in-a-tag linkage.
 
-            // Feed to recipient
-            var recipCore = recipient.TryGetComp<SynapseCorePawnComp>();
-            if (recipCore != null)
-            {
-                recipCore.memories.Add(new WeightedMemory
-                {
-                    summary = $"{initiator.Name.ToStringShort} said to me during a {topicName} conversation: \"{reply}\"",
-                    memoryType = "social",
-                    tags = new List<string> { "conversation", initiator.ThingID },
-                    absTick = Utils.SynapseDateHelper.GameTickToAbsTick(Find.TickManager.TicksGame),
-                    gameTick = Find.TickManager.TicksGame,
-                    weight = 0.10f,
-                    baseWeight = 0.10f,
-                    decayRate = 0.10f
-                });
-            }
+            // Feed to initiator (a memory about the recipient)
+            initiator.TryGetComp<SynapseCorePawnComp>()?.AddMemoryAbout(
+                recipient,
+                $"Said to {recipient.Name.ToStringShort} during a {topicName} conversation: \"{reply}\"",
+                "social", 0.10f,
+                tags: new List<string> { "conversation" });
+
+            // Feed to recipient (a memory about the initiator)
+            recipient.TryGetComp<SynapseCorePawnComp>()?.AddMemoryAbout(
+                initiator,
+                $"{initiator.Name.ToStringShort} said to me during a {topicName} conversation: \"{reply}\"",
+                "social", 0.10f,
+                tags: new List<string> { "conversation" });
 
             // Find closest other bystander within earshot range
             Pawn closestBystander = null;
@@ -853,21 +838,13 @@ namespace RimSynapse.Conversations.Patches
 
             if (closestBystander != null)
             {
-                var bystanderCore = closestBystander.TryGetComp<SynapseCorePawnComp>();
-                if (bystanderCore != null)
-                {
-                    bystanderCore.memories.Add(new WeightedMemory
-                    {
-                        summary = $"Overheard {initiator.Name.ToStringShort} say to {recipient.Name.ToStringShort} during a {topicName} conversation: \"{reply}\"",
-                        memoryType = "social",
-                        tags = new List<string> { "overheard", initiator.ThingID, recipient.ThingID },
-                        absTick = Utils.SynapseDateHelper.GameTickToAbsTick(Find.TickManager.TicksGame),
-                        gameTick = Find.TickManager.TicksGame,
-                        weight = 0.05f,
-                        baseWeight = 0.05f,
-                        decayRate = 0.05f
-                    });
-                }
+                // Overheard: a memory about BOTH speakers, linked to each via the canonical ids (Core #80).
+                closestBystander.TryGetComp<SynapseCorePawnComp>()?.AddMemoryAbout(
+                    new[] { initiator, recipient },
+                    $"Overheard {initiator.Name.ToStringShort} say to {recipient.Name.ToStringShort} during a {topicName} conversation: \"{reply}\"",
+                    "social", 0.05f,
+                    tags: new List<string> { "overheard" },
+                    decayRate: 0.05f);
             }
         }
 

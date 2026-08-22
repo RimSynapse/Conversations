@@ -204,5 +204,46 @@ namespace RimSynapse.Conversations.UI
                     $"  [{e.topicDefName}] {SynapseConversationsWorldComponent.PawnFromId(e.initiatorId)?.LabelShort ?? e.initiatorId} -> {SynapseConversationsWorldComponent.PawnFromId(e.recipientId)?.LabelShort ?? e.recipientId}: \"{e.initiatorStatement}\"");
             }
         }
+
+        [DebugAction("RimSynapse", "Conversations: chit-chat->death memory linkage (Core #80)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ProbeMemoryLinkage()
+        {
+            // The #80 acceptance scenario on REAL producer paths: a chit-chat memory about pawn X
+            // (via the real PropagateContextMemories) and a death-style memory about X (keyed the way
+            // the producers now key it, through Core's AddMemoryAbout) must share a subjectPawnId so
+            // consolidation can link them. No synthetic id-setting anywhere.
+            var colonists = Find.CurrentMap?.mapPawns?.FreeColonists?.Where(p => p.TryGetComp<SynapseCorePawnComp>() != null).ToList();
+            if (colonists == null || colonists.Count < 2)
+            { RimSynapse.SynapseLogger.Info("conversations", "[RimSynapse] #80 probe: need two colonists with comps."); return; }
+
+            Pawn a = colonists[0], x = colonists[1]; // a chats about x; later x "dies"
+            var aComp = a.TryGetComp<SynapseCorePawnComp>();
+            int before = aComp.memories.Count;
+
+            // 1. REAL chit-chat producer.
+            RimSynapse.Conversations.Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.PropagateContextMemories(a, x, "Health", "How is your leg healing?");
+            var chit = aComp.memories.Skip(before).FirstOrDefault(m => m.tags != null && m.tags.Contains("conversation"));
+
+            // 2. Death-style memory about x, keyed the way the Psychology producer now keys it.
+            var death = aComp.AddMemoryAbout(x, $"#80 probe: {x.LabelShort} died", "EventReflection", 0.6f);
+
+            string canonical = SynapseCorePawnComp.MemoryPawnId(x);
+            bool chitLinked = chit != null && chit.subjectPawnIds != null && chit.subjectPawnIds.Contains(canonical);
+            bool deathLinked = death.subjectPawnIds.Contains(canonical);
+            var linkedSet = aComp.GetMemoriesByPawnId(canonical);
+            bool bothIndexed = linkedSet != null && chit != null && linkedSet.Contains(chit) && linkedSet.Contains(death);
+
+            RimSynapse.SynapseLogger.Info("conversations",
+                "[RimSynapse] #80 linkage probe:\n" +
+                $"  chit-chat memory created by real producer: {(chit != null ? "yes" : "NO (bug)")}\n" +
+                $"  canonical subject id for {x.LabelShort}: {canonical}\n" +
+                $"  chit-chat carries it: {chitLinked}; death carries it: {deathLinked}\n" +
+                $"  both indexed under one key (consolidation can link): {bothIndexed}\n" +
+                $"  VERDICT: {(chitLinked && deathLinked && bothIndexed ? "PASS — the #76 scenario fires on real data" : "FAIL")}");
+
+            // Clean up probe memories.
+            if (chit != null) aComp.RemoveMemory(chit);
+            aComp.RemoveMemory(death);
+        }
     }
 }
