@@ -4,24 +4,27 @@ using RimSynapse.Comps;
 
 namespace RimSynapse.Conversations.Generation
 {
+    /// <summary>A system+user pair for the dialogue call. Splitting them matters: a chat completion with
+    /// only a system message and no user turn makes the local model return an empty acknowledgement instead
+    /// of generating — the concrete beat has to arrive as the USER message (the WorldNews pattern).</summary>
+    public struct ThinPrompt
+    {
+        public string system;
+        public string user;
+    }
+
     /// <summary>
     /// Builds the short, WorldNews-style prompt from a resolved <see cref="ConversationBeat"/>
-    /// (Conversations#46): a concrete subject, each speaker's stance, and one-line identities — nothing
-    /// more. The model's only job is to phrase the beat, which is what it does well; the heavy context that
-    /// made small models retreat to filler is gone (it lived in the agent instead).
+    /// (Conversations#46): rules and schema in the system message, the concrete beat as the user message.
+    /// The model's only job is to phrase the beat, which is what it does well; the heavy per-pawn context
+    /// that pushed small models into generic filler is gone (it lives in the agent instead).
     /// </summary>
     public static class ThinDialoguePrompt
     {
-        public static string Build(Pawn initiator, Pawn recipient, ConversationBeat beat)
+        public static ThinPrompt Build(Pawn initiator, Pawn recipient, ConversationBeat beat, string continuationHistory)
         {
             string initName = initiator.Name.ToStringShort;
             string recipName = recipient.Name.ToStringShort;
-            string initId = Identity(initiator);
-            string recipId = Identity(recipient);
-
-            string framingNote = beat.framing == BeatFraming.InitiatorTells
-                ? $"\n{recipName} was NOT there and is hearing this for the first time — they react to it, they do NOT claim to remember or have witnessed it themselves."
-                : "";
 
             string lengthRule = beat.isDeep
                 ? "Write a real back-and-forth — 4 to 8 lines, as long as it honestly needs — each line 1-2 heartfelt sentences under 30 words."
@@ -30,21 +33,35 @@ namespace RimSynapse.Conversations.Generation
             string toneRule;
             switch (beat.tone)
             {
-                case BeatTone.Heartfelt:  toneRule = "The mood is close and personal."; break;
-                case BeatTone.Coercive:   toneRule = "The mood is cold and controlling — threats and power, NOT friendliness."; break;
-                case BeatTone.Negotiating:toneRule = "It's a wary negotiation — each is angling for something."; break;
-                default:                  toneRule = "The mood is easy, everyday."; break;
+                case BeatTone.Heartfelt:   toneRule = "The mood is close and personal."; break;
+                case BeatTone.Coercive:    toneRule = "The mood is cold and controlling — threats and power, NOT friendliness."; break;
+                case BeatTone.Negotiating: toneRule = "It's a wary negotiation — each is angling for something."; break;
+                default:                   toneRule = "The mood is easy, everyday."; break;
             }
 
-            return
-                $"Write the spoken exchange between two people.\n\n" +
-                $"{initName} — {initId}. Right now: {beat.initiatorStance}.\n" +
-                $"{recipName} — {recipId}. They respond: {beat.recipientStance}.\n\n" +
-                $"What it's about: {beat.subject}.{framingNote}\n\n" +
+            string system =
+                "You write short, natural spoken dialogue between two people on a rimworld colony. " +
                 $"{toneRule} {lengthRule} " +
-                $"Alternate speakers, STARTING with {initName}. Make them sound like DIFFERENT people and be concrete about what it's about — no vague filler, no status-report lines. " +
-                $"Do NOT put names, labels, or quotation marks inside the line text.\n" +
-                $"Return strictly valid JSON: {{ \"lines\": [\"{initName}'s line\", \"{recipName}'s reply\", \"...\"] }}";
+                "Make the two sound like DIFFERENT people and stay concrete about the subject you're given — " +
+                "no vague filler, no status-report lines, no restating their mood. " +
+                "Do NOT put names, labels, or quotation marks inside the line text. " +
+                "Return STRICTLY valid JSON and nothing else: {\"lines\": [\"first line\", \"reply\", \"...\"]}.";
+
+            string framingNote = beat.framing == BeatFraming.InitiatorTells
+                ? $" {recipName} was NOT there and is hearing this for the first time — they react to it, they do NOT claim to remember or have witnessed it."
+                : "";
+
+            string historyNote = string.IsNullOrEmpty(continuationHistory)
+                ? ""
+                : $"\n\nThey were just talking; continue naturally and do NOT repeat these lines:\n{continuationHistory}";
+
+            string user =
+                $"{initName} — {Identity(initiator)}. Right now: {beat.initiatorStance}.\n" +
+                $"{recipName} — {Identity(recipient)}. They respond: {beat.recipientStance}.\n\n" +
+                $"What it's about: {beat.subject}.{framingNote}\n\n" +
+                $"Write their spoken exchange, alternating and STARTING with {initName}. Return the JSON now.{historyNote}";
+
+            return new ThinPrompt { system = system, user = user };
         }
 
         /// <summary>A one-line handle on who this pawn is: their authored speaking voice if we have one,
