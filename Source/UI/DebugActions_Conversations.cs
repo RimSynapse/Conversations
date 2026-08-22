@@ -106,6 +106,35 @@ namespace RimSynapse.Conversations.UI
             Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.ForceConversation(p, other, intDef);
         }
 
+        /// <summary>Log the most recent exchange this pawn is part of, speaker by speaker — the headless way
+        /// to eyeball generated dialogue quality (Conversations#46 validation).</summary>
+        [DebugAction("RimSynapse", "Conversations: Dump last exchange (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void DumpLastExchange(Pawn p)
+        {
+            if (p == null) return;
+            var wc = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            if (wc == null) { RimSynapse.SynapseLogger.Info("conversations", "[RimSynapse] No conversations world component."); return; }
+
+            string id = p.ThingID;
+            var conv = wc.pawnConversations
+                .Where(c => c.pawnAId == id || c.pawnBId == id)
+                .OrderByDescending(c => c.lastTick)
+                .FirstOrDefault();
+            if (conv == null || conv.messages == null || conv.messages.Count == 0)
+            {
+                RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] No recorded exchange for {p.LabelShort}.");
+                return;
+            }
+
+            Pawn other = SynapseConversationsWorldComponent.PawnFromId(conv.pawnAId == id ? conv.pawnBId : conv.pawnAId);
+            RimSynapse.SynapseLogger.Info("conversations", $"--- Last exchange: {p.LabelShort} & {other?.LabelShort ?? "?"} (recentTopics: {string.Join(", ", conv.recentTopics ?? new System.Collections.Generic.List<string>())}) ---");
+            foreach (var m in conv.messages)
+            {
+                Pawn spk = SynapseConversationsWorldComponent.PawnFromId(m.sender);
+                RimSynapse.SynapseLogger.Info("conversations", $"  {spk?.LabelShort ?? m.sender}: {m.message}");
+            }
+        }
+
         [DebugAction("RimSynapse", "Conversations: Dump metrics (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void DumpMetrics()
         {
