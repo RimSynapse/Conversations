@@ -1,5 +1,5 @@
 [b]Discord Community:[/b] [url=https://discord.gg/eVBebZ2N9s]https://discord.gg/eVBebZ2N9s[/url]
-[b]Version:[/b] v0.8.0 (Target: RimWorld 1.6)
+[b]Version:[/b] v0.9.0 (Target: RimWorld 1.6)
 
 [h1]RimSynapse - Conversations[/h1]
 [b][url=https://github.com/RimSynapse/Conversations/wiki]Official Wiki and Documentation[/url][/b]
@@ -12,9 +12,11 @@ Bring the social life of your colony to life! RimSynapse Conversations intercept
 [h2]Key Features[/h2]
 [list]
 [*] [b]Dynamic Dialogue Generation:[/b] Read actual conversations between pawns as they socialize, work, or fight.
+[*] [b]Grounded in real events:[/b] An in-code agent picks a concrete beat - a real event, chore or need - before the model writes it, so colonists talk about actual specifics instead of generic filler.
+[*] [b]Warden conversations:[/b] Recruiting, converting, enslaving and suppressing prisoners play out as spoken exchanges grounded in the prisoner's real situation. Flavour only - it never changes the vanilla roll.
 [*] [b]Psychological Integration:[/b] Conversing pawns will naturally bring up their core memories, trust levels, and traumas in their chats. (Requires RimSynapse - Psychology)
-[*] [b]Expansion Dialects:[/b] Support for unique dialogue flavors, including psycast interjections, religious debates, and paranoid void whispers.
-[*] [b]UI Log Viewer:[/b] Browse recent chatter and browse conversation histories for each pawn.
+[*] [b]Runs at your pace:[/b] When the AI can't keep up, conversations shed gracefully instead of piling up a backlog - relationships still evolve.
+[*] [b]UI Log Viewer:[/b] Browse recent chatter and conversation histories for each pawn.
 [/list]
 
 ---
@@ -22,40 +24,20 @@ Bring the social life of your colony to life! RimSynapse Conversations intercept
 [h2]Roadmap[/h2]
 Conversations tracks its own release milestones. What ships next is scoped to dialogue features in this mod - other RimSynapse mods keep their own roadmaps.
 [list]
-[*] [b]0.9 - Group Conversations:[/b] three-way and small-group dialogue around meal halls, campfires and huddled shelters, with turn-taking and reactions from listeners in earshot.
 [*] [b]0.10 - Expansion Dialects:[/b] activate the DLC-specific flavours listed in the compatibility matrix - noble tone demands and psycast interjections (Royalty), faith debates and conversion attempts (Ideology), xenotype dialects and mechanitor comm chatter (Biotech), void whispers (Anomaly).
-[*] [b]Backlog:[/b] player-to-pawn direct dialogue, more Universe Actions (relationship shifts, inspire-to-job), and additional environmental / event triggers.
+[*] [b]Backlog:[/b] group conversations (three-way and small-group dialogue with turn-taking), player-to-pawn direct dialogue, more Universe Actions (relationship shifts, inspire-to-job), and additional environmental / event triggers.
 [/list]
 These ship when they are ready - no dates.
 
 ---
 
-[h2]Changelog (v0.8.0) - Event-Driven Talk, Multi-Line Delivery and Voice[/h2]
+[h2]Changelog (v0.9.0) - Factions and Living Societies[/h2]
 [list]
-[*] NEW - Event-driven conversations: chit-chat and deep-talk topics are now driven by what's actually happening in your colony, with recent events weighted high and conversations pre-staged around notable moments.
-[*] NEW - Single-call multi-line conversations: a whole exchange is generated at once and drip-fed line by line to pawns in range, instead of one-shot back-and-forths.
-[*] NEW - Conversations now honour the Psychology-authored pawn voice, so each colonist sounds like themselves.
-[*] NEW - Two new agent tools: get_chat_history and get_colonist_interests.
-[*] Changed: Universe Actions now flag mutating actions, so autonomous runs respect the mutation gate.
-[*] Fixed: a no-op Universe Action mood booster now actually applies.
-[*] Performance: de-batched the per-tick environmental scan and cached reflection lookups.
-[*] Requires Core v0.8.0.
-[/list]
-
-[h2]Changelog (v0.7.1) - Deeper, more personal conversations[/h2]
-[list]
-[*] NEW - 27 conversation topics (up from 6): small talk about weather, food, chores, animals and gossip, and deep talks about grief, regrets, beliefs, trauma, love, mortality and moral lines.
-[*] NEW - Colonists talk about their actual surroundings - the room they sleep in and the clothes they wear become conversation topics.
-[*] Conversations now draw on real memories: light recent events for small talk, long-standing burdens and specific losses for heart-to-hearts. Deep talks are richer and more personal while small talk stays brief.
-[*] Colonists no longer repeat the same topic back-to-back.
-[*] Experimental: optional background pre-seeding of conversations for instant delivery (off by default - it can serve stale context).
-[*] Requires Core v0.7.1.
-[/list]
-
-[h2]Changelog (v0.7.0) - Regions and Territories Compatibility[/h2]
-[list]
-[*] Moves in step with RimSynapse Core v0.7.0.
-[*] Requires Core v0.7.0; saves and settings carry over unchanged.
+[*] NEW - Warden conversations: recruiting, converting, enslaving and suppressing a prisoner now play out as spoken exchanges grounded in that prisoner's real situation - their resistance, will, comfort, how they were captured, and (with Ideology) the belief clash. Persuasion can build a little rapport; coercion never does. Flavour only - it never changes the vanilla recruitment or conversion roll.
+[*] IMPROVED - Dialogue quality overhaul: before the model writes a line, an in-code agent picks one concrete beat - a real event, chore or need, and each speaker's angle on it - so colonists talk about actual specifics instead of interchangeable filler. Trust, familiarity and opinion shifts are computed in code for consistency.
+[*] NEW - Load-adaptive conversations: when the AI can't keep up (a big colony, a slower model, or high game speed), conversations quietly stop generating instead of piling up a backlog - relationships still evolve, you just don't pay for dialogue you can't watch. Speech bubbles still appear at normal speed.
+[*] CHANGED - The player-to-storyteller chat window has moved to RimSynapse Core. Conversations now owns pawn-to-pawn dialogue only.
+[*] Requires Core v0.9.0; saves and settings carry over unchanged.
 [/list]
 [b]Full version history:[/b] [url=https://github.com/RimSynapse/Conversations/wiki/Changelog]github.com/RimSynapse/Conversations/wiki[/url]
 
@@ -83,4 +65,4 @@ These ship when they are ready - no dates.
 [h2]Source Code and Support[/h2]
 GitHub: [url]https://github.com/RimSynapse/Conversations[/url]
 Licence: [url=https://polyformproject.org/licenses/noncommercial/1.0.0/]PolyForm Noncommercial License 1.0.0[/url] - free for any noncommercial use.
-Buy me a coffee: [url]https://buymeacoffee.com/archdukejim[/url]
+Support development: [url]https://ko-fi.com/archdukejim[/url]

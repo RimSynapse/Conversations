@@ -2,6 +2,22 @@
 
 Full version history for RimSynapse - Conversations. The mod page and Workshop description show only the latest release; every earlier version is recorded here.
 
+## v0.9.0 - Factions and Living Societies
+- NEW - Warden conversations: recruiting, converting, enslaving and suppressing a prisoner now play out as spoken exchanges grounded in that prisoner's real situation - resistance, will, comfort, how they were captured, and (with Ideology) the belief clash. Persuasion can build a little rapport; coercion never does. Flavour only - it never changes the vanilla recruitment/conversion roll (#42).
+- IMPROVED - Dialogue quality overhaul (#46): an in-code agent picks one concrete beat (a real event, chore or need, plus each speaker's angle) before the model writes it, so colonists talk about actual specifics instead of interchangeable filler. The heavy per-pawn context dump that pushed small models into filler now lives in the agent, not the prompt; rules go in the system message and the concrete beat in the user message. Trust/familiarity/opinion offsets are computed in code for consistency.
+- NEW - Load-adaptive conversation shedding (#38): when the shared LLM queue is backed up or Core is throttling (a big colony, a slower model, or high game speed all surface the same way), conversations skip generation instead of piling up a backlog - the code-computed offsets still apply so relationships evolve, you just don't pay for dialogue you can't watch. Bubbles still render at normal speed only.
+- CHANGED - The player-to-storyteller chat window has moved to RimSynapse Core (Core #99); Conversations now owns pawn-to-pawn dialogue only.
+- Requires Core v0.9.0; saves and settings carry over unchanged.
+
+## v0.8.0 - Event-Driven Talk, Multi-Line Delivery and Voice
+- NEW - Event-driven conversations: chit-chat and deep-talk topics are driven by what's actually happening in your colony, with recent events weighted high and conversations pre-staged around notable moments.
+- NEW - Single-call multi-line conversations: a whole exchange is generated at once and drip-fed line by line to pawns in range.
+- NEW - Conversations honour the Psychology-authored pawn voice, so each colonist sounds like themselves.
+- NEW - Two new agent tools: get_chat_history and get_colonist_interests.
+- Changed: Universe Actions now flag mutating actions, so autonomous runs respect the mutation gate. Fixed: a no-op Universe Action mood booster now applies.
+- Performance: de-batched the per-tick environmental scan and cached reflection lookups.
+- Requires Core v0.8.0.
+
 ## v0.7.1 - Deeper, more personal conversations
 - NEW - 27 conversation topics (up from 6): small talk about weather, food, chores, animals and gossip, and deep talks about grief, regrets, beliefs, trauma, love, mortality and moral lines.
 - NEW - Colonists talk about their actual surroundings - the room they sleep in and the clothes they wear become conversation topics (via a data-driven `contextKeys` on each topic def, modder-extensible).
