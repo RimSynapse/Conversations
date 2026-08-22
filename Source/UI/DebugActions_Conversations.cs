@@ -106,6 +106,27 @@ namespace RimSynapse.Conversations.UI
             Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.ForceConversation(p, other, intDef);
         }
 
+        /// <summary>Exercise the load-adaptive shed path (Conversations#38) headlessly: run a shed conversation
+        /// for this pawn and the nearest colonist — no LLM call — and log the offsets applied plus the live
+        /// backpressure readings, so we can confirm relationships still move and see whether real load would
+        /// currently trip the shed gate.</summary>
+        [DebugAction("RimSynapse", "Conversations: Force shed exchange (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceShedExchange(Pawn p)
+        {
+            if (p == null) return;
+            Pawn other = p.Map?.mapPawns?.FreeColonists?
+                .Where(o => o != p && o.RaceProps.Humanlike && o.Spawned)
+                .OrderBy(o => o.Position.DistanceToSquared(p.Position))
+                .FirstOrDefault();
+            if (other == null)
+            {
+                RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] No conversation partner near {p.LabelShort}.");
+                return;
+            }
+            string summary = Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.DebugForceShed(p, other, false);
+            RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] {summary}");
+        }
+
         /// <summary>Log the most recent exchange this pawn is part of, speaker by speaker — the headless way
         /// to eyeball generated dialogue quality (Conversations#46 validation).</summary>
         [DebugAction("RimSynapse", "Conversations: Dump last exchange (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
