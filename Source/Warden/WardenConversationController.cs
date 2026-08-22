@@ -1,12 +1,10 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Verse;
 using RimWorld;
-using Newtonsoft.Json;
 using RimSynapse.Comps;
-using RimSynapse.Models;
+using RimSynapse.Conversations.Generation;
 using RimSynapse.Conversations.Patches;
 
 namespace RimSynapse.Conversations.Warden
@@ -14,8 +12,14 @@ namespace RimSynapse.Conversations.Warden
     /// <summary>
     /// Turns vanilla warden work into a spoken exchange (Conversations#42). The four warden
     /// InteractionWorkers (recruit, convert, enslave, suppress) postfix into <see cref="OnWardenInteraction"/>;
-    /// this resolves the prisoner's real situation, builds a mode-appropriate prompt, generates one
-    /// multi-line exchange, and plays it out through the same bubble + drip-feed path as ambient chatter.
+    /// this resolves the prisoner's real situation, builds a mode-appropriate beat, generates one multi-line
+    /// exchange, and plays it out through the same bubble + drip-feed path as ambient chatter.
+    ///
+    /// Rides the agent-first thin-prompt path (Conversations#46): rules go in the SYSTEM message and the
+    /// concrete scene (identities, the prisoner's real situation, the mode directive) in the USER message —
+    /// a lone system message makes local models return an empty ack. Social effects are computed in code by
+    /// <see cref="SocialOffsetCalculator"/>, whose coercive branch already encodes the warden rule that
+    /// enslavement/suppression never plant warm familiarity — so no per-mode offset hand-coding here.
     ///
     /// OUTCOME COUPLING (issue #42): these conversations are FLAVOUR ONLY. They never touch resistance,
     /// will, or ideology certainty — the vanilla roll stands untouched. Coupling LLM text to recruitment
@@ -29,14 +33,6 @@ namespace RimSynapse.Conversations.Warden
 
         // A warden exchange is a pointed few lines, not a rambling heart-to-heart.
         private const int MaxWardenLines = 8;
-
-        private class WardenExchangeResponse
-        {
-            public List<string> lines { get; set; }
-            public float trustOffset { get; set; }
-            public float familiarityOffset { get; set; }
-            public float affinityOffset { get; set; }
-        }
 
         private static string PairKey(Pawn warden, Pawn prisoner) => warden.ThingID + "|" + prisoner.ThingID;
 
@@ -105,6 +101,16 @@ namespace RimSynapse.Conversations.Warden
             var prisonerCore = prisoner.TryGetComp<SynapseCorePawnComp>();
             string prisonerCtx = ConversationContextResolver.ResolveAll(ContextKeysFor(mode), prisoner, warden, prisonerCore);
 
+            // The beat carries only the tone/register the offset calculator needs; the concrete substance
+            // lives in the user message below (the #46 pattern). Coercive modes route through the calculator's
+            // coercive branch (no warm familiarity, resentment planted).
+            var beat = new ConversationBeat
+            {
+                tone = mode.IsCoercive() ? BeatTone.Coercive : BeatTone.Negotiating,
+                isDeep = false,
+                topicKey = "warden:" + mode.Label()
+            };
+
             if (dumpContext)
             {
                 SynapseLogger.Info("conversations",
@@ -115,39 +121,31 @@ namespace RimSynapse.Conversations.Warden
 
             string wardenBlock = ParticipantLine(warden, prisoner, isPrisoner: false);
             string prisonerBlock = ParticipantLine(prisoner, warden, isPrisoner: true);
-
             var directive = BuildModeDirective(mode, warden, prisoner);
+
+            // SYSTEM: thin rules + lines-only schema (offsets are computed in code, not asked of the model).
+            string toneRule = mode.IsCoercive()
+                ? "The mood is cold and controlling — threats and power, NOT friendliness."
+                : "It's a wary negotiation — each is angling for something.";
+            string system =
+                "You write short, natural spoken dialogue between two people on a rimworld colony. " +
+                toneRule + " " +
+                $"Write a pointed exchange — 2 to {MaxWardenLines} lines, each 1-2 sentences under 30 words — and stop when it's done. " +
+                "Make the two sound like DIFFERENT people and stay concrete about the prisoner's actual situation you're given — " +
+                "no vague filler, no status-report lines. Do NOT put names, labels, or quotation marks inside the line text. " +
+                "Return STRICTLY valid JSON and nothing else: {\"lines\": [\"first line\", \"reply\", \"...\"]}.";
+
+            // USER: the concrete scene — who they are, the prisoner's real situation, and what's happening.
             string ctxBlock = string.IsNullOrEmpty(prisonerCtx) ? "" : $"\nThe prisoner's real situation right now:\n{prisonerCtx}\n";
-
-            string systemPrompt =
-                $"You are writing {directive.scenario}\n" +
+            string user =
                 $"{wardenBlock}\n{prisonerBlock}\n{ctxBlock}\n" +
-                $"{directive.style}\n" +
-                "Write it like real people, not a status report — the two must sound like DIFFERENT people. " +
-                "Be concrete: draw on the prisoner's actual situation above, not generic lines. " +
-                $"Alternate speakers, STARTING with {warden.LabelShort} (odd lines are {warden.LabelShort}, even lines are {prisoner.LabelShort}). " +
-                $"Decide how many lines it naturally needs and stop when it is done (at most {MaxWardenLines} lines). " +
-                "Do NOT include names, labels, or quotation marks inside the line text.\n" +
-                $"Also estimate the social impact on {prisoner.LabelShort}: trustOffset (-2.0 to 2.0), familiarityOffset (0.0 to 3.0), affinityOffset (-2.0 to 2.0).\n" +
-                "Return strictly valid JSON with this schema:\n" +
-                "{\n" +
-                $"  \"lines\": [\"{warden.LabelShort}'s first line\", \"{prisoner.LabelShort}'s reply\", \"...as many as it needs...\"],\n" +
-                "  \"trustOffset\": 0.0,\n" +
-                "  \"familiarityOffset\": 0.0,\n" +
-                "  \"affinityOffset\": 0.0\n" +
-                "}";
+                $"What's happening: {directive.scenario}\n{directive.style}\n\n" +
+                $"Write their spoken exchange, alternating and STARTING with {warden.LabelShort}. Return the JSON now.";
 
-            var apiMessages = new List<ChatMessage> { new ChatMessage { role = "system", content = systemPrompt } };
-
-            SynapseClient.ChatAsync(
+            SynapseClient.PromptAsync(
                 RimSynapseConversationsMod.ModHandle,
-                apiMessages,
-                new ChatOptions
-                {
-                    priority = 1,
-                    requestName = $"Warden {mode.Label()}",
-                    targetName = $"{warden.LabelShort} & {prisoner.LabelShort}"
-                },
+                system,
+                user,
                 result =>
                 {
                     if (!result.success || string.IsNullOrEmpty(result.content))
@@ -156,13 +154,10 @@ namespace RimSynapse.Conversations.Warden
                         return;
                     }
 
-                    WardenExchangeResponse ex = null;
-                    try { ex = JsonConvert.DeserializeObject<WardenExchangeResponse>(Patch_Pawn_InteractionsTracker_TryInteractWith.ExtractJson(result.content)); }
-                    catch { ex = null; }
-
-                    var cleanLines = ex?.lines?
+                    var cleanLines = Patch_Pawn_InteractionsTracker_TryInteractWith.ParseLinesLenient(result.content)?
                         .Where(l => !string.IsNullOrWhiteSpace(l))
-                        .Select(l => l.Trim())
+                        .Select(l => Patch_Pawn_InteractionsTracker_TryInteractWith.CleanLine(l, warden, prisoner))
+                        .Where(l => !string.IsNullOrWhiteSpace(l))
                         .Take(MaxWardenLines)
                         .ToList();
 
@@ -172,6 +167,9 @@ namespace RimSynapse.Conversations.Warden
                         return;
                     }
 
+                    // Offsets in code (Conversations#46): the beat's tone drives persuasion vs coercion.
+                    var off = SocialOffsetCalculator.Compute(warden, prisoner, beat);
+
                     if (dumpContext)
                     {
                         for (int i = 0; i < cleanLines.Count; i++)
@@ -180,17 +178,23 @@ namespace RimSynapse.Conversations.Warden
                             SynapseLogger.Info("conversations", $"  {s.LabelShort}: {cleanLines[i]}");
                         }
                         SynapseLogger.Info("conversations",
-                            $"  (offsets: trust {ex.trustOffset:F1}, familiarity {ex.familiarityOffset:F1}, affinity {ex.affinityOffset:F1}; coercive={mode.IsCoercive()})");
+                            $"  (offsets: trust {off.trust:F1}, familiarity {off.familiarity:F1}, affinity {off.affinity:F1}; coercive={mode.IsCoercive()})");
                     }
 
-                    SynapseGameComponent.Enqueue(() => ApplyExchange(warden, prisoner, mode, cleanLines, ex));
+                    SynapseGameComponent.Enqueue(() => ApplyExchange(warden, prisoner, mode, cleanLines, off));
+                },
+                new ChatOptions
+                {
+                    priority = 1,
+                    requestName = $"Warden {mode.Label()}",
+                    targetName = $"{warden.LabelShort} & {prisoner.LabelShort}"
                 }
             );
         }
 
         /// <summary>Land the first line immediately, hand the rest to the map drip-feed, then apply the
-        /// mode-appropriate social effects and memories.</summary>
-        private static void ApplyExchange(Pawn warden, Pawn prisoner, WardenMode mode, List<string> cleanLines, WardenExchangeResponse ex)
+        /// code-computed social effects and memories.</summary>
+        private static void ApplyExchange(Pawn warden, Pawn prisoner, WardenMode mode, List<string> cleanLines, SocialOffsets off)
         {
             if (!IsValidPair(warden, prisoner)) return;
 
@@ -229,7 +233,11 @@ namespace RimSynapse.Conversations.Warden
                 UI.SpeechBubbleManager.AddBubble(warden, prisoner, first.message, 0, 4.5f);
             }
 
-            ApplyWardenSocialEffects(warden, prisoner, mode, ex);
+            // Coercive vs persuasion is already baked into the offsets by SocialOffsetCalculator: a coercive
+            // beat yields negative trust, zero familiarity and a resentment thought; persuasion yields modest
+            // opinion-based rapport. So we just apply what it computed.
+            Patch_Pawn_InteractionsTracker_TryInteractWith.ApplyPsychologyOffsets(warden, prisoner, off.trust, off.familiarity);
+            Patch_Pawn_InteractionsTracker_TryInteractWith.ApplyVanillaAffinityThought(warden, prisoner, off.affinity);
             Patch_Pawn_InteractionsTracker_TryInteractWith.PropagateContextMemories(warden, prisoner, mode.Label(), first.message);
 
             if (lines.Count > 1 && warden.Map != null)
@@ -237,28 +245,6 @@ namespace RimSynapse.Conversations.Warden
                 var mapComp = warden.Map.GetComponent<SynapseConversationsMapComponent>();
                 mapComp?.EnqueuePlayback(warden, prisoner, conversation, lines.GetRange(1, lines.Count - 1));
             }
-        }
-
-        /// <summary>Mode-appropriate social handling (issue #42): persuasion may build a little rapport;
-        /// coercion never plants warm familiarity, and suppression/enslavement leave resentment instead.</summary>
-        private static void ApplyWardenSocialEffects(Pawn warden, Pawn prisoner, WardenMode mode, WardenExchangeResponse ex)
-        {
-            if (mode.IsCoercive())
-            {
-                // Enslavement / suppression: no trust or familiarity gain, ever. Only a negative trust
-                // nudge is allowed to pass through, and the prisoner is left with a "slight" (resentment)
-                // rather than the friendly "chitchat" thought.
-                float coldTrust = Mathf.Min(0f, ex.trustOffset);
-                Patch_Pawn_InteractionsTracker_TryInteractWith.ApplyPsychologyOffsets(warden, prisoner, coldTrust, 0f);
-                Patch_Pawn_InteractionsTracker_TryInteractWith.ApplyVanillaAffinityThought(warden, prisoner, -2f);
-                return;
-            }
-
-            // Recruitment / conversion: persuasion can build modest rapport. Familiarity is clamped
-            // non-negative; affinity thought follows the model's read of how the pitch landed.
-            Patch_Pawn_InteractionsTracker_TryInteractWith.ApplyPsychologyOffsets(
-                warden, prisoner, ex.trustOffset, Mathf.Max(0f, ex.familiarityOffset));
-            Patch_Pawn_InteractionsTracker_TryInteractWith.ApplyVanillaAffinityThought(warden, prisoner, ex.affinityOffset);
         }
 
         // ── Per-mode prompt shaping ──────────────────────────────────────

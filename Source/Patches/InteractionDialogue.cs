@@ -378,7 +378,7 @@ namespace RimSynapse.Conversations.Patches
         /// <summary>Pull the <c>lines</c> array out of the model's reply, tolerating the malformed JSON small
         /// models routinely emit (a stray extra bracket, a missing closing brace, trailing prose). We only
         /// need the array, so we don't require the whole object to be valid.</summary>
-        private static List<string> ParseLinesLenient(string content)
+        internal static List<string> ParseLinesLenient(string content)
         {
             if (string.IsNullOrEmpty(content)) return null;
 
@@ -416,7 +416,7 @@ namespace RimSynapse.Conversations.Patches
 
         /// <summary>Small local models often ignore "no names/labels" and prefix a line with the speaker's
         /// name or wrap it in quotes. Strip those so the bubble shows just the spoken words.</summary>
-        private static string CleanLine(string line, Pawn a, Pawn b)
+        internal static string CleanLine(string line, Pawn a, Pawn b)
         {
             string s = line.Trim();
             if (s.Length >= 2 && s.StartsWith("- ")) s = s.Substring(2).Trim();
