@@ -12,7 +12,7 @@
   Interoperable with the community "Version Checker" mod.
 -->
 <Manifest>
-  <version>0.9.0</version>
+  <version>0.9.1</version>
   <!-- Pinned to 0.9.0: the player-storyteller chat window was migrated OUT of Conversations
        into Core (Core #99), so this build genuinely requires the Core that hosts it. -->
   <coreVersion>0.9.0</coreVersion>

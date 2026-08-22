@@ -1,5 +1,5 @@
 [b]Discord Community:[/b] [url=https://discord.gg/eVBebZ2N9s]https://discord.gg/eVBebZ2N9s[/url]
-[b]Version:[/b] v0.9.0 (Target: RimWorld 1.6)
+[b]Version:[/b] v0.9.1 (Target: RimWorld 1.6)
 
 [h1]RimSynapse - Conversations[/h1]
 [b][url=https://github.com/RimSynapse/Conversations/wiki]Official Wiki and Documentation[/url][/b]
@@ -30,6 +30,12 @@ Conversations tracks its own release milestones. What ships next is scoped to di
 These ship when they are ready - no dates.
 
 ---
+
+[h2]Changelog (v0.9.1) - Linked Memories[/h2]
+[list]
+[*] Fixed: chit-chat and overheard-conversation memories now record who they are about through Core 0.9's canonical memory linkage, so a conversation about a colonist truly consolidates with later events about them (their death, most importantly). Previously these memories were invisible to relational consolidation.
+[*] Requires RimSynapse Core v0.9.0.
+[/list]
 
 [h2]Changelog (v0.9.0) - Factions and Living Societies[/h2]
 [list]

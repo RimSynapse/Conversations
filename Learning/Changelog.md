@@ -2,6 +2,10 @@
 
 Full version history for RimSynapse - Conversations. The mod page and Workshop description show only the latest release; every earlier version is recorded here.
 
+## v0.9.1 - Linked Memories
+- Fixed: chit-chat and overheard-conversation memories now record who they are about through Core 0.9's canonical memory linkage, so a conversation about a colonist truly consolidates with later events about them (their death, most importantly). Previously these memories were invisible to relational consolidation.
+- Requires RimSynapse Core v0.9.0.
+
 ## v0.9.0 - Factions and Living Societies
 - NEW - Warden conversations: recruiting, converting, enslaving and suppressing a prisoner now play out as spoken exchanges grounded in that prisoner's real situation - resistance, will, comfort, how they were captured, and (with Ideology) the belief clash. Persuasion can build a little rapport; coercion never does. Flavour only - it never changes the vanilla recruitment/conversion roll (#42).
 - IMPROVED - Dialogue quality overhaul (#46): an in-code agent picks one concrete beat (a real event, chore or need, plus each speaker's angle) before the model writes it, so colonists talk about actual specifics instead of interchangeable filler. The heavy per-pawn context dump that pushed small models into filler now lives in the agent, not the prompt; rules go in the system message and the concrete beat in the user message. Trust/familiarity/opinion offsets are computed in code for consistency.
