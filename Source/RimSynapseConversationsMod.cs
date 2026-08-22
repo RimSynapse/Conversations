@@ -66,6 +66,27 @@ namespace RimSynapse.Conversations
             );
             listingStandard.Gap(12f);
 
+            listingStandard.CheckboxLabeled(
+                "Warden conversations (recruit / convert / enslave / suppress)",
+                ref Settings.enableWardenConversations,
+                "When on, warden work — reducing resistance, recruiting, converting to your ideoligion, enslaving, " +
+                "and suppressing slaves — plays out as a spoken exchange that reflects THIS prisoner's resistance, " +
+                "needs and beliefs. Purely flavour: it never changes the vanilla recruitment/conversion roll."
+            );
+            if (Settings.enableWardenConversations)
+            {
+                Settings.wardenConversationCooldownHours = listingStandard.SliderLabeled(
+                    Settings.wardenConversationCooldownHours <= 0f
+                        ? "  Warden Conversation Cooldown: Off (every warden interaction)"
+                        : $"  Warden Conversation Cooldown: {Settings.wardenConversationCooldownHours:F1} in-game hours",
+                    Settings.wardenConversationCooldownHours, 0f, 12f,
+                    0.5f,
+                    "Minimum in-game hours before the same warden and prisoner will generate another warden conversation. " +
+                    "Warden toils repeat constantly; raising this keeps the exchanges occasional. Set to 0 for one on every interaction."
+                );
+            }
+            listingStandard.Gap(12f);
+
             listingStandard.Label("Speech Bubble Aesthetics:");
             listingStandard.Label($"Background Red: {Settings.bubbleRed:F2}");
             Settings.bubbleRed = listingStandard.Slider(Settings.bubbleRed, 0f, 1f);
