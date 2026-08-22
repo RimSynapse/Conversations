@@ -136,6 +136,14 @@ namespace RimSynapse.Conversations.Patches
                 }
             }
 
+            // Load-adaptive shedding (#38): if the LLM can't keep up, skip the (unwatchable) generation
+            // and just let the relationship evolve via the code-computed offsets (#46) — no LLM call.
+            if (ShouldShedForLoad())
+            {
+                ApplyShedConversation(initiator, recipient, intDef, conversation, currentTick);
+                return;
+            }
+
             // Cache miss / caching disabled / game is sped up
             GenerateConversationAndApply(initiator, recipient, intDef, conversation, isSpedUp);
 
@@ -144,6 +152,67 @@ namespace RimSynapse.Conversations.Patches
                 // Queue a pre-generation in the background to refill cache for next time
                 QueuePreGeneration(initiator, recipient, intDef);
             }
+        }
+
+        /// <summary>Is the shared LLM pipeline behind enough that conversations — the lowest-value LLM
+        /// consumer — should yield (Conversations#38)? A backlog in the queue or an active Core throttle
+        /// both mean the model can't keep up; a bigger colony, a slower provider and higher game speed all
+        /// surface here as a deeper queue, so we gate on real load rather than on speed.</summary>
+        private static bool ShouldShedForLoad()
+        {
+            var s = RimSynapseConversationsMod.Settings;
+            if (s == null || !s.adaptiveConversationShedding) return false;
+            if (s.conversationQueueDepthCap > 0 && SynapseClient.TotalQueueDepth > s.conversationQueueDepthCap) return true;
+            if (SynapseClient.ThrottleLevel < ShedThrottleFloor) return true;
+            return false;
+        }
+
+        // Core's dynamic throttle runs 1.0 (full speed) → 0.0 (paused); below this it's slowed enough that
+        // conversations should yield to higher-value work (storyteller, news).
+        private const float ShedThrottleFloor = 0.5f;
+
+        /// <summary>The cheap, no-LLM outcome for a conversation shed under load (Conversations#38): resolve a
+        /// minimal beat, apply the code-computed social offsets so opinion/relationship still move, and record
+        /// the interaction — but generate no dialogue text. No bubble (they only render at 1x anyway).</summary>
+        private static void ApplyShedConversation(Pawn initiator, Pawn recipient, InteractionDef intDef, PawnConversation conversation, int currentTick)
+        {
+            bool isDeep = intDef == InteractionDefOf.DeepTalk;
+            var beat = new Generation.ConversationBeat { isDeep = isDeep, tone = Generation.BeatTone.Casual };
+            var off = Generation.SocialOffsetCalculator.Compute(initiator, recipient, beat);
+
+            ApplyPsychologyOffsets(initiator, recipient, off.trust, off.familiarity);
+            ApplyVanillaAffinityThought(initiator, recipient, off.affinity);
+            conversation.lastTick = currentTick;
+
+            float dist = (initiator.Spawned && recipient.Spawned) ? initiator.Position.DistanceTo(recipient.Position) : -1f;
+            ConversationMetrics.Add(initiator, recipient, null, dist, dist, 0, 0, "shed");
+        }
+
+        /// <summary>Headless validation hook for the shed path (Conversations#38): run a shed conversation for
+        /// this pair right now and return a one-line summary of the offsets applied, so a debug action can
+        /// confirm relationships still move with no LLM call.</summary>
+        public static string DebugForceShed(Pawn initiator, Pawn recipient, bool deep)
+        {
+            var worldComp = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            if (worldComp == null) return "no world component";
+            string idA = initiator.ThingID, idB = recipient.ThingID;
+            var conversation = worldComp.pawnConversations.FirstOrDefault(c =>
+                (c.pawnAId == idA && c.pawnBId == idB) || (c.pawnAId == idB && c.pawnBId == idA));
+            if (conversation == null)
+            {
+                conversation = new PawnConversation(idA, idB, Find.TickManager.TicksGame);
+                worldComp.pawnConversations.Add(conversation);
+            }
+
+            int opBefore = recipient.relations?.OpinionOf(initiator) ?? 0;
+            var beat = new Generation.ConversationBeat { isDeep = deep, tone = Generation.BeatTone.Casual };
+            var off = Generation.SocialOffsetCalculator.Compute(initiator, recipient, beat);
+            ApplyShedConversation(initiator, recipient, deep ? InteractionDefOf.DeepTalk : InteractionDefOf.Chitchat, conversation, Find.TickManager.TicksGame);
+            int opAfter = recipient.relations?.OpinionOf(initiator) ?? 0;
+
+            return $"shed {initiator.LabelShort}->{recipient.LabelShort} deep={deep} " +
+                   $"offsets(trust={off.trust:F2} fam={off.familiarity:F2} aff={off.affinity:F2}) " +
+                   $"opinion {opBefore}->{opAfter} | queueDepth={SynapseClient.TotalQueueDepth} throttle={SynapseClient.ThrottleLevel:F2} wouldShed={ShouldShedForLoad()}";
         }
 
         private class LlmStatementResponse
@@ -258,6 +327,7 @@ namespace RimSynapse.Conversations.Patches
         private static void QueuePreGeneration(Pawn initiator, Pawn recipient, InteractionDef intDef)
         {
             if (initiator == null || recipient == null || !initiator.Spawned || !recipient.Spawned) return;
+            if (ShouldShedForLoad()) return; // background pre-gen only adds load — hold off while behind (#38)
 
             string idA = initiator.ThingID;
             string idB = recipient.ThingID;
@@ -480,6 +550,7 @@ namespace RimSynapse.Conversations.Patches
         {
             if (worldComp == null || !worldComp.CanStageMoreEvents) return;
             if (!(RimSynapseConversationsMod.Settings?.preStageEventConversations ?? true)) return;
+            if (ShouldShedForLoad()) return; // pre-staging adds background load — hold off while behind (#38)
             var map = Find.CurrentMap;
             if (map == null) return;
 
