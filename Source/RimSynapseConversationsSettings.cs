@@ -20,6 +20,20 @@ namespace RimSynapse.Conversations
         // are upgraded into a full Synapse dialogue so chatter (and the social memories it
         // plants) does not accumulate far faster than intended. 0 = no throttle (legacy behavior).
         public float dialogueCooldownHours = 1f;
+        // Load-adaptive shedding (#38): when the LLM can't keep up (a request backlog is building or Core
+        // is actively throttling), skip the dialogue generation for a conversation but still apply the
+        // code-computed social offsets (#46) so relationships keep evolving for free. A big colony, a slow
+        // provider and high game speed all surface the same way — a growing queue — so we gate on real load,
+        // not on speed. Bubbles already only render at 1x, so nothing visible is lost.
+        public bool adaptiveConversationShedding = true;
+        // Shed live generation once the shared LLM queue is deeper than this. Lower = shed sooner (cheaper,
+        // less chatter under load); higher = keep generating longer. 0 disables the depth gate.
+        public int conversationQueueDepthCap = 4;
+        // Warden conversations (#42): upgrade vanilla warden work (recruit / reduce resistance, ideology
+        // conversion, enslavement, slave suppression) into a spoken exchange. Warden toils repeat very
+        // frequently, so this has its own cooldown separate from ambient chatter.
+        public bool enableWardenConversations = true;
+        public float wardenConversationCooldownHours = 2f;
         public float bubbleRed = 0.12f;
         public float bubbleGreen = 0.12f;
         public float bubbleBlue = 0.12f;
@@ -34,6 +48,10 @@ namespace RimSynapse.Conversations
             Scribe_Values.Look(ref preStageEventConversations, "preStageEventConversations", true);
             Scribe_Values.Look(ref eventPreStageFireChance, "eventPreStageFireChance", 0.30f);
             Scribe_Values.Look(ref dialogueCooldownHours, "dialogueCooldownHours", 1f);
+            Scribe_Values.Look(ref adaptiveConversationShedding, "adaptiveConversationShedding", true);
+            Scribe_Values.Look(ref conversationQueueDepthCap, "conversationQueueDepthCap", 4);
+            Scribe_Values.Look(ref enableWardenConversations, "enableWardenConversations", true);
+            Scribe_Values.Look(ref wardenConversationCooldownHours, "wardenConversationCooldownHours", 2f);
             Scribe_Values.Look(ref bubbleRed, "bubbleRed", 0.12f);
             Scribe_Values.Look(ref bubbleGreen, "bubbleGreen", 0.12f);
             Scribe_Values.Look(ref bubbleBlue, "bubbleBlue", 0.12f);

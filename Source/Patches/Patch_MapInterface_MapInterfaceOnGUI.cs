@@ -165,38 +165,18 @@ namespace RimSynapse.Conversations.UI
 namespace RimSynapse.Conversations.Patches
 {
     /// <summary>
-    /// Harmony patch on MapInterface.MapInterfaceOnGUI to render active speech bubbles and the Storyteller Chat HUD button.
+    /// Harmony patch on MapInterface.MapInterfaceOnGUI to render active pawn-to-pawn speech bubbles on the HUD.
     /// </summary>
     [HarmonyPatch(typeof(MapInterface), nameof(MapInterface.MapInterfaceOnGUI_AfterMainTabs))]
     public static class Patch_MapInterface_MapInterfaceOnGUI
     {
         public static void Postfix()
         {
-            // Render active speech bubbles on the HUD
+            // Render active speech bubbles on the HUD (pawn-to-pawn dialogue).
             UI.SpeechBubbleManager.DrawBubbles();
 
-            // Only engage when the LLM-enabled storyteller ("Synapse") is loaded and active
-            if (Current.ProgramState != ProgramState.Playing || Find.World == null) return;
-            if (Find.Storyteller?.def?.defName != "Synapse") return;
-
-            // Render the button directly above the bottom-right game speed controls
-            float width = 140f;
-            float height = 26f;
-            float x = Verse.UI.screenWidth - width - 15f;
-            float y = Verse.UI.screenHeight - height - 45f;
-            Rect btnRect = new Rect(x, y, width, height);
-
-            if (Widgets.ButtonText(btnRect, "Storyteller Chat"))
-            {
-                if (Find.WindowStack.IsOpen<StorytellerConversationWindow>())
-                {
-                    Find.WindowStack.TryRemove(typeof(StorytellerConversationWindow));
-                }
-                else
-                {
-                    Find.WindowStack.Add(new StorytellerConversationWindow());
-                }
-            }
+            // The player↔storyteller chat window and its toolbar toggle moved to Core (Core #99),
+            // where they are gated on a live RimSynapse storyteller instead of a hardcoded defName.
         }
     }
 
