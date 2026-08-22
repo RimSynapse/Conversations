@@ -4,7 +4,7 @@
     <author>RimSynapse Team</author>
     <packageId>RimSynapse.Conversations</packageId>
     <url>https://github.com/RimSynapse/Conversations</url>
-    <modVersion>0.9.0</modVersion>
+    <modVersion>0.9.1</modVersion>
     <supportedVersions>
         <li>1.5</li>
         <li>1.6</li>
@@ -27,7 +27,7 @@
     </loadAfter>
     <description>
 Discord Community: https://discord.gg/eVBebZ2N9s
-Version: v0.9.0 (Target: RimWorld 1.6)
+Version: v0.9.1 (Target: RimWorld 1.6)
 
 RimSynapse - Conversations
 Official Wiki and Documentation: https://github.com/RimSynapse/Conversations/wiki
@@ -43,6 +43,10 @@ Conversations tracks its own release milestones. What ships next is scoped to di
 0.10 - Expansion Dialects: activate the DLC-specific flavours listed in the compatibility matrix - noble tone demands and psycast interjections (Royalty), faith debates and conversion attempts (Ideology), xenotype dialects and mechanitor comm chatter (Biotech), void whispers (Anomaly).
 Backlog: group conversations (three-way and small-group dialogue with turn-taking and reactions from listeners in earshot), player-to-pawn direct dialogue, more Universe Actions (relationship shifts, inspire-to-job), and additional environmental / event triggers.
 These ship when they are ready - no dates.
+
+--- Changelog (v0.9.1) - Linked Memories ---
+- Fixed: chit-chat and overheard-conversation memories now record who they are about through Core 0.9's canonical memory linkage, so a conversation about a colonist truly consolidates with later events about them (their death, most importantly). Previously these memories were invisible to relational consolidation.
+- Requires RimSynapse Core v0.9.0.
 
 --- Changelog (v0.9.0) - Factions and Living Societies ---
 - NEW - Warden conversations: recruiting, converting, enslaving and suppressing a prisoner now play out as spoken exchanges grounded in that prisoner's real situation - their resistance, will, comfort, how they were captured, and (with Ideology) the belief clash. Persuasion can build a little rapport; coercion never does. Flavour only - it never changes the vanilla recruitment or conversion roll.
