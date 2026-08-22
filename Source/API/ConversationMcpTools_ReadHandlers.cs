@@ -19,9 +19,9 @@ namespace RimSynapse.Conversations.API
 
         /// <summary>
         /// get_chat_history — returns the named colonist's pawn-to-pawn messages, newest-first.
-        /// Source is <see cref="SynapseConversationsWorldComponent.pawnConversations"/>; the flat
-        /// storyteller-window <c>chatHistory</c> is Player/Storyteller only and carries no colonist
-        /// speaker to filter on, so it is intentionally not included here.
+        /// Source is <see cref="SynapseConversationsWorldComponent.pawnConversations"/>. The
+        /// player↔storyteller chat log is Player/Storyteller only (no colonist speaker to filter on)
+        /// and now lives in Core's SynapseCoreWorldComponent (Core #99), so it is not included here.
         /// </summary>
         private static string GetChatHistoryHandler(string argumentsJson)
         {
