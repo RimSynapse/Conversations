@@ -83,6 +83,24 @@ namespace RimSynapse.Conversations.Generation
             };
         }
 
+        /// <summary>A beat for an environmental trigger (darkness, freezer, …). The caller already knows the
+        /// concrete subject — a phrase like "walking into the freezing cold freezer and complaining about the
+        /// chilling temperature" — so we skip subject selection and just wrap it as a casual, passing remark.
+        /// This routes environmental comments through the same thin, voice-led prompt as ordinary chit-chat,
+        /// instead of the retired heavy per-pawn dump (Conversations#44).</summary>
+        public static ConversationBeat EnvironmentalBeat(Pawn initiator, Pawn recipient, string type, string description)
+        {
+            return new ConversationBeat
+            {
+                subject = description,
+                initiatorStance = "remarking on it out loud as it happens, just in passing",
+                recipientStance = RecipientColour(recipient, initiator, "reacting to the offhand comment"),
+                tone = BeatTone.Casual,
+                isDeep = false,
+                topicKey = "env:" + (type ?? "ambient")
+            };
+        }
+
         // ── Event beat with involvement-aware framing ────────────────────
         private static ConversationBeat TryEventBeat(Pawn initiator, Pawn recipient, SynapseCorePawnComp initCore,
             SynapseCorePawnComp recipCore, bool isDeep, ICollection<string> avoidTopics)

@@ -215,16 +215,11 @@ namespace RimSynapse.Conversations.Patches
                    $"opinion {opBefore}->{opAfter} | queueDepth={SynapseClient.TotalQueueDepth} throttle={SynapseClient.ThrottleLevel:F2} wouldShed={ShouldShedForLoad()}";
         }
 
-        private class LlmStatementResponse
-        {
-            public string text { get; set; }
-        }
-
         // One call yields a whole alternating back-and-forth (the LLM sizes it to the scenario); the
         // first line lands now and the rest drip-feed while the pawns stay together (Conversations#31).
         private const int MaxExchangeLines = 12;
 
-        private static void PerformSequentialDialogueGeneration(Pawn initiator, Pawn recipient, InteractionDef intDef, Action<LlmConversationResponse, Generation.ConversationBeat, bool> onComplete)
+        private static void PerformSequentialDialogueGeneration(Pawn initiator, Pawn recipient, InteractionDef intDef, Action<LlmConversationResponse, Generation.ConversationBeat, bool> onComplete, Generation.ConversationBeat presetBeat = null)
         {
             var worldComp = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
             if (worldComp == null) return;
@@ -253,7 +248,10 @@ namespace RimSynapse.Conversations.Patches
             // and each speaker's stance — in code, so the model only has to phrase it (the WorldNews pattern).
             // The heavy per-pawn psychology dump that pushed small models into generic filler is gone: the
             // substance lives in the beat, not the prompt.
-            Generation.ConversationBeat beat = Generation.ConversationBeatResolver.Resolve(initiator, recipient, isDeepTalk, avoidTopics);
+            // A caller (e.g. the environmental trigger) may supply the concrete beat; otherwise the agent
+            // resolves one from live pawn state. Either way the model only phrases it (Conversations#46/#44).
+            Generation.ConversationBeat beat = presetBeat
+                ?? Generation.ConversationBeatResolver.Resolve(initiator, recipient, isDeepTalk, avoidTopics);
 
             // Continuation: if they were just talking, hand the model the last few lines to pick up from.
             string continuation = null;
@@ -464,7 +462,7 @@ namespace RimSynapse.Conversations.Patches
             }
         }
 
-        private static void GenerateConversationAndApply(Pawn initiator, Pawn recipient, InteractionDef intDef, PawnConversation conversation, bool isSpedUp)
+        private static void GenerateConversationAndApply(Pawn initiator, Pawn recipient, InteractionDef intDef, PawnConversation conversation, bool isSpedUp, Generation.ConversationBeat presetBeat = null)
         {
             // Playtest instrumentation (#29): stamp the request so we can measure how much in-game time
             // (and wall-clock) passes before the FIRST line lands, and how far the pawns drift.
@@ -533,7 +531,7 @@ namespace RimSynapse.Conversations.Patches
                         mapComp?.EnqueuePlayback(initiator, recipient, conversation, lines.GetRange(1, lines.Count - 1));
                     }
                 });
-            });
+            }, presetBeat);
         }
 
         // ── Pre-staged event conversations (#35) ─────────────────────────
@@ -1051,194 +1049,24 @@ namespace RimSynapse.Conversations.Patches
 
             string idA = initiator.ThingID;
             string idB = recipient.ThingID;
-            PawnConversation conversation = worldComp.pawnConversations.FirstOrDefault(c => 
+            PawnConversation conversation = worldComp.pawnConversations.FirstOrDefault(c =>
                 (c.pawnAId == idA && c.pawnBId == idB) || (c.pawnAId == idB && c.pawnBId == idA));
 
             int currentTick = Find.TickManager.TicksGame;
-
             if (conversation == null)
             {
                 conversation = new PawnConversation(idA, idB, currentTick);
                 worldComp.pawnConversations.Add(conversation);
             }
 
-            // 1. Compile Initiator context
-            float restLevel = initiator.needs?.rest?.CurLevel ?? 1f;
-            string exhaustionState = restLevel < 0.3f ? "extremely exhausted/tired" : (restLevel < 0.6f ? "moderately tired" : "well-rested");
-
-            string lastEaten = "unknown";
-            if (initiator.needs?.mood?.thoughts?.memories?.Memories != null)
-            {
-                var foodThought = initiator.needs.mood.thoughts.memories.Memories
-                    .FirstOrDefault(m => m.def.defName.StartsWith("Ate", StringComparison.OrdinalIgnoreCase));
-                if (foodThought != null)
-                {
-                    lastEaten = foodThought.def.label ?? foodThought.def.defName;
-                }
-            }
-
-            var topThoughts = new List<string>();
-            if (initiator.needs?.mood?.thoughts?.memories?.Memories != null)
-            {
-                var activeMemories = initiator.needs.mood.thoughts.memories.Memories
-                    .Where(m => m.def.stages != null && m.def.stages.Count > 0)
-                    .OrderByDescending(m => Math.Abs(m.MoodOffset()))
-                    .Take(3)
-                    .Select(m => m.def.stages[m.CurStageIndex]?.label ?? m.def.label ?? m.def.defName)
-                    .ToList();
-                topThoughts.AddRange(activeMemories);
-            }
-            string thoughtsCsv = topThoughts.Count > 0 ? string.Join(", ", topThoughts) : "none";
-            string initiatorMood = initiator.needs?.mood?.CurLevelPercentage.ToStringPercent() ?? "50%";
-            string moodContext = $"{initiatorMood} (thoughts: {thoughtsCsv})";
-
-            var initCore = initiator.TryGetComp<SynapseCorePawnComp>();
-            string initPsych = initCore != null && initCore.llmTraits != null ? string.Join(", ", initCore.llmTraits) : "none";
-            string initiatorTraits = string.Join(", ", initiator.story?.traits?.allTraits?.Select(t => t.Label) ?? Enumerable.Empty<string>());
-            int initOpinionOfRecip = initiator.relations?.OpinionOf(recipient) ?? 0;
-
-            string initVoice = !string.IsNullOrEmpty(initCore?.voiceProfile) ? $"Speaks like this: {initCore.voiceProfile}\n" : "";
-            string systemPrompt = $"You are simulating the RimWorld pawn {initiator.Name.ToStringShort}.\n" +
-                initVoice +
-                $"Personality: {initiatorTraits} (Psychology: {initPsych})\n" +
-                $"Current Mood: {moodContext}\n" +
-                $"Opinion of {recipient.Name.ToStringShort}: {initOpinionOfRecip} (-100 to 100)\n\n" +
-                $"Write exactly 1 brief statement (1-2 sentences, under 20 words) directed at {recipient.Name.ToStringShort}.\n" +
-                $"The topic is strictly: {description}.\n" +
-                $"Do NOT include names/labels or formatting. Return strictly valid JSON: {{ \"text\": \"your statement\" }}";
-
-            var apiMessages = new List<ChatMessage> { new ChatMessage { role = "system", content = systemPrompt } };
-
-            SynapseClient.ChatAsync(
-                RimSynapseConversationsMod.ModHandle,
-                apiMessages,
-                new ChatOptions 
-                { 
-                    priority = 1, 
-                    requestName = $"Env Statement A ({type})", 
-                    targetName = $"{initiator.Name.ToStringShort} to {recipient.Name.ToStringShort}" 
-                },
-                resultA =>
-                {
-                    if (!resultA.success || string.IsNullOrEmpty(resultA.content)) return;
-
-                    string cleanA = ExtractJson(resultA.content);
-                    string statementA = "";
-                    try
-                    {
-                        var parsedA = JsonConvert.DeserializeObject<LlmStatementResponse>(cleanA);
-                        statementA = parsedA?.text;
-                    }
-                    catch
-                    {
-                        statementA = cleanA;
-                    }
-
-                    if (string.IsNullOrEmpty(statementA)) return;
-
-                    // 2. Recipient response generation
-                    float B_restLevel = recipient.needs?.rest?.CurLevel ?? 1f;
-                    string B_exhaustionState = B_restLevel < 0.3f ? "extremely exhausted/tired" : (B_restLevel < 0.6f ? "moderately tired" : "well-rested");
-
-                    string B_lastEaten = "unknown";
-                    if (recipient.needs?.mood?.thoughts?.memories?.Memories != null)
-                    {
-                        var foodThought = recipient.needs.mood.thoughts.memories.Memories
-                            .FirstOrDefault(m => m.def.defName.StartsWith("Ate", StringComparison.OrdinalIgnoreCase));
-                        if (foodThought != null)
-                        {
-                            B_lastEaten = foodThought.def.label ?? foodThought.def.defName;
-                        }
-                    }
-
-                    var B_topThoughts = new List<string>();
-                    if (recipient.needs?.mood?.thoughts?.memories?.Memories != null)
-                    {
-                        var activeMemories = recipient.needs.mood.thoughts.memories.Memories
-                            .Where(m => m.def.stages != null && m.def.stages.Count > 0)
-                            .OrderByDescending(m => Math.Abs(m.MoodOffset()))
-                            .Take(3)
-                            .Select(m => m.def.stages[m.CurStageIndex]?.label ?? m.def.label ?? m.def.defName)
-                            .ToList();
-                        B_topThoughts.AddRange(activeMemories);
-                    }
-                    string B_thoughtsCsv = B_topThoughts.Count > 0 ? string.Join(", ", B_topThoughts) : "none";
-                    string recipientMood = recipient.needs?.mood?.CurLevelPercentage.ToStringPercent() ?? "50%";
-                    string B_moodContext = $"{recipientMood} (thoughts: {B_thoughtsCsv})";
-
-                    var recipCore = recipient.TryGetComp<SynapseCorePawnComp>();
-                    string recipPsych = recipCore != null && recipCore.llmTraits != null ? string.Join(", ", recipCore.llmTraits) : "none";
-                    string recipientTraits = string.Join(", ", recipient.story?.traits?.allTraits?.Select(t => t.Label) ?? Enumerable.Empty<string>());
-                    int recipOpinionOfInit = recipient.relations?.OpinionOf(initiator) ?? 0;
-
-                    string recipVoice = !string.IsNullOrEmpty(recipCore?.voiceProfile) ? $"{recipient.Name.ToStringShort} speaks like this: {recipCore.voiceProfile}\n" : "";
-                    string promptB = $"You are simulating the RimWorld pawn {recipient.Name.ToStringShort} responding to {initiator.Name.ToStringShort}.\n\n" +
-                        recipVoice +
-                        $"Context prompt:\n" +
-                        $"{initiator.Name.ToStringShort} : {statementA} : {recipOpinionOfInit} : {recipientTraits} (Psychology: {recipPsych}) : {B_moodContext} (Exhaustion: {B_exhaustionState}, Last Eaten: {B_lastEaten})\n\n" +
-                        $"Based on this context, craft exactly 1 or 2 sentences to respond to {initiator.Name.ToStringShort}'s statement about the environmental trigger.\n" +
-                        $"Also estimate the social impact of this interaction: set trustOffset (-1.0 to 1.0), familiarityOffset (1.0 to 2.0), and affinityOffset (-1.0 to 1.0).\n" +
-                        $"Do NOT include names/labels or formatting. Return strictly valid JSON with this schema:\n" +
-                        $"{{\n" +
-                        $"  \"text\": \"your response statement\",\n" +
-                        $"  \"trustOffset\": 0.0,\n" +
-                        $"  \"familiarityOffset\": 0.0,\n" +
-                        $"  \"affinityOffset\": 0.0\n" +
-                        $"}}";
-
-                    var apiMessagesB = new List<ChatMessage> { new ChatMessage { role = "system", content = promptB } };
-
-                    SynapseClient.ChatAsync(
-                        RimSynapseConversationsMod.ModHandle,
-                        apiMessagesB,
-                        new ChatOptions 
-                        { 
-                            priority = 1, 
-                            requestName = $"Env Response B", 
-                            targetName = $"{recipient.Name.ToStringShort} to {initiator.Name.ToStringShort}" 
-                        },
-                        resultB =>
-                        {
-                            if (!resultB.success || string.IsNullOrEmpty(resultB.content)) return;
-
-                            string cleanB = ExtractJson(resultB.content);
-                            try
-                            {
-                                var parsedB = JsonConvert.DeserializeObject<LlmConversationResponse>(cleanB);
-                                if (parsedB != null)
-                                {
-                                    SynapseGameComponent.Enqueue(() =>
-                                    {
-                                        if (!initiator.Spawned || initiator.Dead || !recipient.Spawned || recipient.Dead) return;
-
-                                        conversation.messages.Add(new SynapseConversationMessage(initiator.ThingID, statementA, Find.TickManager.TicksGame));
-                                        conversation.messages.Add(new SynapseConversationMessage(recipient.ThingID, parsedB.text, Find.TickManager.TicksGame));
-                                        conversation.lastTick = Find.TickManager.TicksGame;
-
-                                        while (conversation.messages.Count > 50)
-                                        {
-                                            conversation.messages.RemoveAt(0);
-                                        }
-
-                                        if (Find.TickManager.CurTimeSpeed == TimeSpeed.Normal)
-                                        {
-                                            UI.SpeechBubbleManager.AddBubble(initiator, recipient, statementA, 0, 4.5f);
-                                            UI.SpeechBubbleManager.AddBubble(recipient, initiator, parsedB.text, 270, 4.5f);
-                                        }
-
-                                        ApplyPsychologyOffsets(initiator, recipient, parsedB.trustOffset, parsedB.familiarityOffset);
-                                        ApplyVanillaAffinityThought(initiator, recipient, parsedB.affinityOffset);
-                                        PropagateContextMemories(initiator, recipient, "Environment", statementA);
-                                    });
-                                }
-                            }
-                            catch
-                            {
-                            }
-                        }
-                    );
-                }
-            );
+            // Environmental comments now ride the same thin, voice-led beat path as ordinary chit-chat
+            // (Conversations#44). The old bespoke two-call prompt front-loaded each pawn's llmTraits taxonomy
+            // ("Jungian Type: INTJ", "Temperament: Melancholic") and numeric mood/opinion, which pushed the
+            // small model into flat, clinical status-report lines. The concrete environmental subject is
+            // handed in as a preset beat; the model only has to phrase it in the pawn's voice.
+            var beat = Generation.ConversationBeatResolver.EnvironmentalBeat(initiator, recipient, type, description);
+            GenerateConversationAndApply(initiator, recipient, InteractionDefOf.Chitchat, conversation,
+                Find.TickManager.CurTimeSpeed != TimeSpeed.Normal, beat);
         }
     }
 }

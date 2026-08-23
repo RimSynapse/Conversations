@@ -42,6 +42,10 @@ namespace RimSynapse.Conversations.Generation
             string system =
                 "You write short, natural spoken dialogue between two people on a rimworld colony. " +
                 $"{toneRule} {lengthRule} " +
+                "These are ordinary frontier colonists — fighters, farmers, cooks — talking out loud, NOT analysts " +
+                "filing a report. Use plain, everyday spoken words. Do NOT slip into a clinical or technical register " +
+                "(words like 'parameters', 'data', 'systemic', 'quantifiable', 'optimal', 'metrics', 'variables', " +
+                "'stability') UNLESS a speaker's own described voice is explicitly that way. " +
                 "Make the two sound like DIFFERENT people and stay concrete about the subject you're given — " +
                 "no vague filler, no status-report lines, no restating their mood. " +
                 "Do NOT put names, labels, or quotation marks inside the line text. " +
@@ -75,8 +79,21 @@ namespace RimSynapse.Conversations.Generation
                 if (v.Length > 140) v = v.Substring(0, 140).TrimEnd() + "…";
                 return $"speaks like this: {v}";
             }
-            var traits = pawn.story?.traits?.allTraits?.Take(2).Select(t => t.Label).ToList();
-            return traits != null && traits.Count > 0 ? string.Join(", ", traits) : "an ordinary colonist";
+            // No authored voice yet — the Psychology voice pipeline is async and can lag or drop out. Rather
+            // than collapse every voiceless pawn to the same bare handle (which lets a small model default to
+            // a flat, clinical status-report register), anchor them to who they are and steer to plain speech.
+            // A real voiceProfile, once it lands, overrides this — and may well be clinical if that fits the
+            // character; the plain-speech steer is only the DEFAULT for pawns with nothing to voice them yet
+            // (Conversations#44).
+            string backstory = pawn.story?.Adulthood?.title ?? pawn.story?.Childhood?.title;
+            var traitList = pawn.story?.traits?.allTraits?.Take(2).Select(t => t.Label).ToList();
+            string traits = traitList != null && traitList.Count > 0 ? string.Join(", ", traitList) : null;
+
+            string anchor = backstory;
+            if (!string.IsNullOrEmpty(traits)) anchor = string.IsNullOrEmpty(anchor) ? traits : $"{backstory} ({traits})";
+            if (string.IsNullOrEmpty(anchor)) anchor = "an ordinary colonist";
+
+            return $"has no fixed way of speaking — voice them as {anchor}, in plain everyday words, not clinical or technical";
         }
     }
 }
