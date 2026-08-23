@@ -12,10 +12,12 @@
   Interoperable with the community "Version Checker" mod.
 -->
 <Manifest>
-  <version>0.9.1</version>
-  <!-- Pinned to 0.9.0: the player-storyteller chat window was migrated OUT of Conversations
-       into Core (Core #99), so this build genuinely requires the Core that hosts it. -->
-  <coreVersion>0.9.0</coreVersion>
+  <version>0.9.2</version>
+  <!-- Pinned to 0.9.1: labelless JobDefs are humanized in Core's pawn comp (Core 1fb8089), so
+       raw defNames no longer leak into dialogue. That fix lives entirely in Core, so this build
+       genuinely requires the Core that contains it. (0.9.0 hosts the migrated storyteller window,
+       Core #99; 0.9.1 adds the defName-leak fix.) -->
+  <coreVersion>0.9.1</coreVersion>
   <manifestUri>https://raw.githubusercontent.com/RimSynapse/Conversations/main/About/Manifest.xml</manifestUri>
   <downloadUri>https://github.com/RimSynapse/Conversations/releases/latest</downloadUri>
   <workshopId>3768363934</workshopId>
