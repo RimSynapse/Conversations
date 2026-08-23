@@ -2,6 +2,10 @@
 
 Full version history for RimSynapse - Conversations. The mod page and Workshop description show only the latest release; every earlier version is recorded here.
 
+## v0.9.2 - Cleaner dialogue
+- Fixed: raw JobDef defNames no longer leak into dialogue. Labelless job defs are now humanized in Core's pawn comp, so colonists describe what they are doing in readable words instead of surfacing internal defNames. The fix lives entirely in Core; this build raises its Core floor to guarantee it is present.
+- Requires RimSynapse Core v0.9.1.
+
 ## v0.9.1 - Linked Memories
 - Fixed: chit-chat and overheard-conversation memories now record who they are about through Core 0.9's canonical memory linkage, so a conversation about a colonist truly consolidates with later events about them (their death, most importantly). Previously these memories were invisible to relational consolidation.
 - Requires RimSynapse Core v0.9.0.
