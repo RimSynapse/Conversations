@@ -1,6 +1,6 @@
 # RimSynapse Conversations — shipped assembly manifest
-# version: 0.9.2
-# commit:  94c9440 (working tree had other uncommitted changes)
+# version: 0.9.3
+# commit:  2b69afc (working tree had other uncommitted changes)
 # format:  sha256sum — verify with 'verify-binaries.ps1' or 'sha256sum -c'
 e1e27af7b07eeedf5ce71a9255f0422816a6fc5849a483c6714e1b472044fa9d  Newtonsoft.Json.dll
-67bef33557bf44ce9abf80e0b995c6aeb3b28adcf74b82aa7f221217de862311  RimSynapseConversations.dll
+f60fca3b525fe260f6f55a06e53ba16b6595919c5c3c2c94b2451a3a7e5824e5  RimSynapseConversations.dll
