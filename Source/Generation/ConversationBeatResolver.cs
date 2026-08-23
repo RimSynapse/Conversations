@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Verse;
 using RimWorld;
 using RimSynapse.Comps;
@@ -164,8 +165,20 @@ namespace RimSynapse.Conversations.Generation
             if (string.IsNullOrEmpty(summary)) return null;
             int comma = summary.IndexOf(',');
             string job = (comma != -1 ? summary.Substring(0, comma) : summary).Trim();
+            job = StripTrailingPercent(job);
             if (string.IsNullOrEmpty(job)) return null;
             return $"the {job.ToLowerInvariant()} they've been busy with";
+        }
+
+        // Core's activity summary appends a completion percentage to each job segment
+        // ("wandering (100%)"). The subject only wants the phrase, so drop a trailing " (NN%)".
+        private static readonly Regex TrailingPercent = new Regex(@"\s*\(\d+(?:\.\d+)?%\)$", RegexOptions.Compiled);
+
+        /// <summary>Strips a trailing progress annotation like " (100%)" from an activity phrase.</summary>
+        public static string StripTrailingPercent(string phrase)
+        {
+            if (string.IsNullOrEmpty(phrase)) return phrase;
+            return TrailingPercent.Replace(phrase, string.Empty).TrimEnd();
         }
 
         /// <summary>The single most pressing physical/emotional state, as a concrete phrase, or null if fine.</summary>

@@ -54,6 +54,34 @@ namespace RimSynapse.Conversations.UI
             }
         }
 
+        // No-arg so it runs headlessly via run_debug_action. Confirms RecentActivity's cleanup drops the
+        // "(NN%)" completion annotation that Core's activity summary appends — so a subject reads
+        // "the wandering they've been busy with", not "the wandering (100%) they've been busy with".
+        [DebugAction("RimSynapse", "Conversations: activity subject strips (NN%)", allowedGameStates = AllowedGameStates.Playing)]
+        private static void ProbeActivityPercentStrip()
+        {
+            (string input, string expected)[] cases =
+            {
+                ("wandering (100%)", "wandering"),
+                ("hauling steel (42.5%)", "hauling steel"),
+                ("wandering", "wandering"),
+                ("talking (to Randy)", "talking (to Randy)"),
+            };
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("[RimSynapse] RecentActivity trailing-(NN%) strip:");
+            bool allOk = true;
+            foreach (var (input, expected) in cases)
+            {
+                string got = Generation.ConversationBeatResolver.StripTrailingPercent(input);
+                bool ok = got == expected;
+                allOk &= ok;
+                sb.AppendLine($"  '{input}' -> '{got}'  (expected '{expected}')  {(ok ? "OK" : "FAIL")}");
+            }
+            sb.Append($"  VERDICT: {(allOk ? "PASS" : "FAIL")}");
+            RimSynapse.SynapseLogger.Info("conversations", sb.ToString());
+        }
+
         [DebugAction("RimSynapse", "Conversations: Force chit-chat (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void ForceChitchat(Pawn p) => ForceWithNearest(p, InteractionDefOf.Chitchat);
 
