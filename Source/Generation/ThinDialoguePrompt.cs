@@ -75,8 +75,11 @@ namespace RimSynapse.Conversations.Generation
             var core = pawn.TryGetComp<SynapseCorePawnComp>();
             if (!string.IsNullOrEmpty(core?.voiceProfile))
             {
+                // 220, not 140: Psychology 0.9.2 voiceProfiles end with a sample line of actual speech
+                // ("... Might say: «Roof's patched. Next time tell me before it rains.»") — the strongest
+                // register anchor the small model gets, so the cap must not cut it off (#44).
                 string v = core.voiceProfile.Trim();
-                if (v.Length > 140) v = v.Substring(0, 140).TrimEnd() + "…";
+                if (v.Length > 220) v = v.Substring(0, 220).TrimEnd() + "…";
                 return $"speaks like this: {v}";
             }
             // No authored voice yet — the Psychology voice pipeline is async and can lag or drop out. Rather

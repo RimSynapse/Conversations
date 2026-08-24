@@ -4,7 +4,7 @@
     <author>RimSynapse Team</author>
     <packageId>RimSynapse.Conversations</packageId>
     <url>https://github.com/RimSynapse/Conversations</url>
-    <modVersion>0.9.3</modVersion>
+    <modVersion>0.9.4</modVersion>
     <supportedVersions>
         <li>1.5</li>
         <li>1.6</li>
@@ -27,7 +27,7 @@
     </loadAfter>
     <description>
 Discord Community: https://discord.gg/eVBebZ2N9s
-Version: v0.9.3 (Target: RimWorld 1.6)
+Version: v0.9.4 (Target: RimWorld 1.6)
 
 RimSynapse - Conversations
 Official Wiki and Documentation: https://github.com/RimSynapse/Conversations/wiki
@@ -43,6 +43,11 @@ Conversations tracks its own release milestones. What ships next is scoped to di
 0.10 - Expansion Dialects: activate the DLC-specific flavours listed in the compatibility matrix - noble tone demands and psycast interjections (Royalty), faith debates and conversion attempts (Ideology), xenotype dialects and mechanitor comm chatter (Biotech), void whispers (Anomaly).
 Backlog: group conversations (three-way and small-group dialogue with turn-taking and reactions from listeners in earshot), player-to-pawn direct dialogue, more Universe Actions (relationship shifts, inspire-to-job), and additional environmental / event triggers.
 These ship when they are ready - no dates.
+
+--- Changelog (v0.9.4) - Better small talk ---
+- Fixed: conversation subjects no longer quote internal activity statistics - "the lying down (39%) they've been busy with" becomes a clean, natural topic, and dull activities like sleeping or wandering are skipped in favor of something worth mentioning.
+- IMPROVED - Pawns' voices now carry a sample line of actual speech (from Psychology v0.9.2), giving each conversation a much stronger anchor for how that pawn sounds.
+- Requires RimSynapse Core v0.9.1. Pairs best with RimSynapse Psychology v0.9.2.
 
 --- Changelog (v0.9.3) - Colonists talk like people ---
 - Fixed: conversations no longer drift into cold, clinical, technical-report language ("filed as a positive datum... within current parameters"). Colonists speak in plain, everyday words that fit who they are - a formal-natured pawn can still sound formal, but nobody defaults to sounding like a lab readout.

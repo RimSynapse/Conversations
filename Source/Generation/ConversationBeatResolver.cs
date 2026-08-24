@@ -176,14 +176,30 @@ namespace RimSynapse.Conversations.Generation
             return m?.summary;
         }
 
+        // Activities nobody strikes up a conversation about — resting, idling, walking somewhere. If the
+        // pawn's day was only these, the beat falls through to pressing-state/observation instead.
+        private static readonly string[] MundaneActivities =
+            { "idle", "lying down", "sleeping", "wandering", "standing", "going", "waiting", "meditating" };
+
         private static string RecentActivity(SynapseCorePawnComp core)
         {
             string summary = core?.GetRecentJobsSummary();
             if (string.IsNullOrEmpty(summary)) return null;
-            int comma = summary.IndexOf(',');
-            string job = (comma != -1 ? summary.Substring(0, comma) : summary).Trim();
-            if (string.IsNullOrEmpty(job)) return null;
-            return $"the {job.ToLowerInvariant()} they've been busy with";
+
+            // Core's summary is an analytic roll-up ("cooking (42%), lying down (39%), ...") meant for the
+            // trait engine and context dumps. For a conversation subject take the first activity someone
+            // would actually talk about, and strip the duration percentage — "the lying down (39%) they've
+            // been busy with" reads as machine output and drags the model's register with it (#44).
+            foreach (var rawPart in summary.Split(','))
+            {
+                string job = System.Text.RegularExpressions.Regex
+                    .Replace(rawPart, @"\s*\([^)]*\)", "").Trim();
+                if (string.IsNullOrEmpty(job)) continue;
+                string lower = job.ToLowerInvariant();
+                if (MundaneActivities.Any(m => lower == m || lower.StartsWith(m + " "))) continue;
+                return $"the {lower} they've been busy with";
+            }
+            return null;
         }
 
         /// <summary>The single most pressing physical/emotional state, as a concrete phrase, or null if fine.</summary>

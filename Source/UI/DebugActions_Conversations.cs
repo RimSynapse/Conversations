@@ -54,6 +54,39 @@ namespace RimSynapse.Conversations.UI
             }
         }
 
+        /// <summary>Dump the LITERAL assembled chit-chat prompt (system + user, with each pawn's voiceProfile
+        /// inlined exactly as it is sent) so the exact bytes going to the LLM are inspectable — including
+        /// whether a pawn's authored voice is itself clinical, which the plain-speech steer defers to
+        /// (Conversations#44). No LLM call is made.</summary>
+        [DebugAction("RimSynapse", "Conversations: Dump chit-chat prompt (Log)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void DumpChitchatPrompt(Pawn p)
+        {
+            if (p == null || p.Map == null) return;
+            Pawn recipient = p.Map.mapPawns?.FreeColonists?
+                .Where(o => o != p && o.RaceProps.Humanlike && o.Spawned && !o.Dead)
+                .OrderBy(o => o.Position.DistanceToSquared(p.Position))
+                .FirstOrDefault();
+            if (recipient == null)
+            {
+                RimSynapse.SynapseLogger.Info("conversations", $"[prompt-dump] {p.LabelShort}: no recipient colonist on map.");
+                return;
+            }
+
+            var beat = Generation.ConversationBeatResolver.Resolve(p, recipient, false, new HashSet<string>());
+            var prompt = Generation.ThinDialoguePrompt.Build(p, recipient, beat, null);
+
+            string vpInit = p.TryGetComp<SynapseCorePawnComp>()?.voiceProfile;
+            string vpRecip = recipient.TryGetComp<SynapseCorePawnComp>()?.voiceProfile;
+
+            RimSynapse.SynapseLogger.Info("conversations", $"===== CHIT-CHAT PROMPT DUMP: {p.LabelShort} -> {recipient.LabelShort} =====");
+            RimSynapse.SynapseLogger.Info("conversations", $"[beat] subject='{beat.subject}' tone={beat.tone} deep={beat.isDeep} framing={beat.framing} topicKey='{beat.topicKey}'");
+            RimSynapse.SynapseLogger.Info("conversations", $"[voiceProfile:{p.LabelShort}] {(string.IsNullOrEmpty(vpInit) ? "(none — fallback anchor used)" : vpInit)}");
+            RimSynapse.SynapseLogger.Info("conversations", $"[voiceProfile:{recipient.LabelShort}] {(string.IsNullOrEmpty(vpRecip) ? "(none — fallback anchor used)" : vpRecip)}");
+            RimSynapse.SynapseLogger.Info("conversations", $"----- SYSTEM -----\n{prompt.system}");
+            RimSynapse.SynapseLogger.Info("conversations", $"----- USER -----\n{prompt.user}");
+            RimSynapse.SynapseLogger.Info("conversations", "===== END PROMPT DUMP =====");
+        }
+
         [DebugAction("RimSynapse", "Conversations: Force chit-chat (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void ForceChitchat(Pawn p) => ForceWithNearest(p, InteractionDefOf.Chitchat);
 
