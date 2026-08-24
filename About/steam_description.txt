@@ -1,5 +1,5 @@
 [b]Discord Community:[/b] [url=https://discord.gg/eVBebZ2N9s]https://discord.gg/eVBebZ2N9s[/url]
-[b]Version:[/b] v0.9.3 (Target: RimWorld 1.6)
+[b]Version:[/b] v0.9.4 (Target: RimWorld 1.6)
 
 [h1]RimSynapse - Conversations[/h1]
 [b][url=https://github.com/RimSynapse/Conversations/wiki]Official Wiki and Documentation[/url][/b]
@@ -30,6 +30,13 @@ Conversations tracks its own release milestones. What ships next is scoped to di
 These ship when they are ready - no dates.
 
 ---
+
+[h2]Changelog (v0.9.4) - Better small talk[/h2]
+[list]
+[*] Fixed: conversation subjects no longer quote internal activity statistics - "the lying down (39%) they've been busy with" becomes a clean, natural topic, and dull activities like sleeping or wandering are skipped in favor of something worth mentioning.
+[*] Improved: pawns' voices now carry a sample line of actual speech (from Psychology v0.9.2), giving each conversation a much stronger anchor for how that pawn sounds.
+[*] Requires RimSynapse Core v0.9.1. Pairs best with RimSynapse Psychology v0.9.2.
+[/list]
 
 [h2]Changelog (v0.9.3) - Colonists talk like people[/h2]
 [list]
