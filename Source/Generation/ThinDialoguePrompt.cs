@@ -61,11 +61,30 @@ namespace RimSynapse.Conversations.Generation
 
             string user =
                 $"{initName} — {Identity(initiator)}. Right now: {beat.initiatorStance}.\n" +
-                $"{recipName} — {Identity(recipient)}. They respond: {beat.recipientStance}.\n\n" +
+                $"{recipName} — {Identity(recipient)}. They respond: {beat.recipientStance}.{RelationNote(initiator, recipient)}\n\n" +
                 $"What it's about: {beat.subject}.{framingNote}\n\n" +
                 $"Write their spoken exchange, alternating and STARTING with {initName}. Return the JSON now.{historyNote}";
 
             return new ThinPrompt { system = system, user = user };
+        }
+
+        /// <summary>When the two speakers are NOT social equals, one short clause naming the relationship so
+        /// the model doesn't voice a captor and captive (or a host and a guest) as old friends (#41). Empty
+        /// for peer pairs (colonist↔colonist / resident), which keeps ordinary chatter clean.</summary>
+        private static string RelationNote(Pawn a, Pawn b)
+        {
+            string ra = RimSynapse.SynapseCoreProviders.ConversationRole(a);
+            string rb = RimSynapse.SynapseCoreProviders.ConversationRole(b);
+            bool Captive(string r) => r == "prisoner" || r == "slave";
+            bool Free(string r) => r == "colonist" || r == "resident";
+
+            if ((Captive(ra) && Free(rb)) || (Captive(rb) && Free(ra)))
+                return " They are not equals: one belongs to the colony, the other is held by it. This is a wary captor-and-captive relationship, not friendship — let that show in the words and the mood.";
+            if ((ra == "guest" && Free(rb)) || (rb == "guest" && Free(ra)))
+                return " One is of the colony, the other a guest passing through — cordial and a little distant, not old friends.";
+            if (Captive(ra) && Captive(rb))
+                return " Both are held by the colony — they share that lot, and can be franker with each other than with their keepers.";
+            return "";
         }
 
         /// <summary>A one-line handle on who this pawn is: their authored speaking voice if we have one,

@@ -139,6 +139,52 @@ namespace RimSynapse.Conversations.UI
             Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.ForceConversation(p, other, intDef);
         }
 
+        /// <summary>#41 validation: force a chit-chat between the clicked pawn and the nearest conversation
+        /// participant of ANY role — so a colonist can be paired with a nearby prisoner, slave or guest, the
+        /// case the colonist-only force helpers can't reach. Confirms the exchange generates and persists.</summary>
+        [DebugAction("RimSynapse", "Conversations: Force exchange w/ nearest participant (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceExchangeWithParticipant(Pawn p)
+        {
+            if (p == null || p.Map == null) return;
+            Pawn other = p.Map.mapPawns.AllPawnsSpawned
+                .Where(o => o != p && !o.Downed && RimSynapse.SynapseCoreProviders.MayConverse(o))
+                .OrderBy(o => o.Position.DistanceToSquared(p.Position))
+                .FirstOrDefault();
+            if (other == null)
+            {
+                RimSynapse.SynapseLogger.Info("conversations", $"[#41] No conversation participant near {p.LabelShort}.");
+                return;
+            }
+            string ra = RimSynapse.SynapseCoreProviders.ConversationRole(p);
+            string rb = RimSynapse.SynapseCoreProviders.ConversationRole(other);
+            RimSynapse.SynapseLogger.Info("conversations",
+                $"[#41] Forcing chit-chat {p.LabelShort} ({ra}) -> {other.LabelShort} ({rb}), dist {p.Position.DistanceTo(other.Position):F1}.");
+            Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.ForceConversation(p, other, InteractionDefOf.Chitchat);
+        }
+
+        /// <summary>#41 validation: log, for every spawned humanlike, whether it passes the Core MayConverse
+        /// predicate and what role it resolves to — so eligibility is inspectable without hunting for a
+        /// natural trigger.</summary>
+        [DebugAction("RimSynapse", "Conversations: Dump participation eligibility (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void DumpParticipationEligibility()
+        {
+            var map = Find.CurrentMap;
+            if (map == null) return;
+            RimSynapse.SynapseLogger.Info("conversations", "--- Conversation participation (spawned humanlikes) ---");
+            int yes = 0, no = 0;
+            foreach (var pawn in map.mapPawns.AllPawnsSpawned
+                .Where(x => x.RaceProps.Humanlike && !x.Dead)
+                .OrderByDescending(x => RimSynapse.SynapseCoreProviders.MayConverse(x)))
+            {
+                bool may = RimSynapse.SynapseCoreProviders.MayConverse(pawn);
+                string role = RimSynapse.SynapseCoreProviders.ConversationRole(pawn);
+                RimSynapse.SynapseLogger.Info("conversations",
+                    $"  [{(may ? "YES" : "no ")}] {pawn.LabelShort} — {role} — faction {(pawn.Faction?.Name ?? "none")}");
+                if (may) yes++; else no++;
+            }
+            RimSynapse.SynapseLogger.Info("conversations", $"--- {yes} may converse / {no} excluded ---");
+        }
+
         /// <summary>Exercise the load-adaptive shed path (Conversations#38) headlessly: run a shed conversation
         /// for this pawn and the nearest colonist — no LLM call — and log the offsets applied plus the live
         /// backpressure readings, so we can confirm relationships still move and see whether real load would

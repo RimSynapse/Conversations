@@ -94,19 +94,38 @@ namespace RimSynapse.Conversations
             ProcessConversationPlaybacks();
 
             // Environmental-trigger scan. Previously gated on a single "TicksGame % 250 == 0"
-            // that evaluated every eligible colonist on the same tick — a synchronized batch
-            // spike (0.8 perf pass). Now each colonist is still checked once per 250 ticks but
-            // hash-staggered by pawn id, and we iterate FreeColonistsSpawned (player humanlikes
-            // only) instead of every spawned pawn (animals/enemies included) filtered down.
-            var colonists = map.mapPawns.FreeColonistsSpawned;
-            for (int i = 0; i < colonists.Count; i++)
+            // that evaluated every eligible pawn on the same tick — a synchronized batch spike
+            // (0.8 perf pass). Each pawn is still checked once per 250 ticks, hash-staggered by
+            // pawn id. The initiator set is the colony's own humanlikes (colonists + prisoners +
+            // slaves, #41), taken from cached lists — NOT AllPawnsSpawned, which the 0.8 pass
+            // deliberately moved away from (#32).
+            var initiators = ConversationInitiators();
+            for (int i = 0; i < initiators.Count; i++)
             {
-                var pawn = colonists[i];
+                var pawn = initiators[i];
                 if (pawn == null || pawn.Downed) continue;
                 if (!pawn.IsHashIntervalTick(250)) continue;
 
                 EvaluatePawnEnvironment(pawn);
             }
+        }
+
+        // Colony-related humanlikes that can INITIATE an ambient environmental comment (#41): colonists,
+        // prisoners of the colony, and slaves of the colony, from RimWorld's cached lists so the scan stays
+        // bounded and cheap (the 0.8 perf pass, #32, moved this off AllPawnsSpawned — keep it there). One
+        // reused buffer, no per-tick allocation. Quest lodgers and residents still take part as recipients
+        // and through the vanilla interaction-driven path; they just don't drive the ambient scan.
+        private readonly List<Pawn> _initiatorBuffer = new List<Pawn>();
+        private List<Pawn> ConversationInitiators()
+        {
+            _initiatorBuffer.Clear();
+            var mp = map.mapPawns;
+            _initiatorBuffer.AddRange(mp.FreeColonistsSpawned);
+            var prisoners = mp.PrisonersOfColonySpawned;
+            for (int i = 0; i < prisoners.Count; i++) _initiatorBuffer.Add(prisoners[i]);
+            var slaves = mp.SlavesOfColonySpawned;
+            for (int i = 0; i < slaves.Count; i++) _initiatorBuffer.Add(slaves[i]);
+            return _initiatorBuffer;
         }
 
         /// <summary>
@@ -147,10 +166,10 @@ namespace RimSynapse.Conversations
         {
             if (Current.ProgramState != ProgramState.Playing) return 0;
             int n = 0;
-            var colonists = map.mapPawns.FreeColonistsSpawned;
-            for (int i = 0; i < colonists.Count; i++)
+            var initiators = ConversationInitiators();
+            for (int i = 0; i < initiators.Count; i++)
             {
-                var pawn = colonists[i];
+                var pawn = initiators[i];
                 if (pawn == null || pawn.Downed) continue;
                 EvaluatePawnEnvironment(pawn);
                 n++;
@@ -222,7 +241,9 @@ namespace RimSynapse.Conversations
             Pawn recipient = null;
             foreach (var other in map.mapPawns.AllPawnsSpawned)
             {
-                if (other == initiator || !other.RaceProps.Humanlike || other.Dead || other.Downed || other.Faction != Faction.OfPlayer) continue;
+                // Any conversation participant nearby can be the listener — a colonist can remark to a
+                // prisoner or guest, not only to another colonist (#41).
+                if (other == initiator || other.Downed || !RimSynapse.SynapseCoreProviders.MayConverse(other)) continue;
                 if (initiator.Position.DistanceTo(other.Position) <= 5f)
                 {
                     recipient = other;

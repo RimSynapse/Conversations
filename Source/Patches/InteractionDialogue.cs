@@ -554,8 +554,12 @@ namespace RimSynapse.Conversations.Patches
 
             long nowAbs = Find.TickManager.TicksAbs;
             int staged = 0;
-            var colonists = map.mapPawns.FreeColonists;
-            foreach (var owner in colonists)
+            // Retellings can involve the colony's captives and slaves too, not just colonists (#41) — a
+            // prisoner recounting their capture to a warden, say. Built from cached colony lists (bounded);
+            // this is the capped background pre-gen path, not the per-tick scan.
+            var participants = new List<Pawn>(map.mapPawns.FreeColonistsAndPrisonersSpawned);
+            participants.AddRange(map.mapPawns.SlavesOfColonySpawned);
+            foreach (var owner in participants)
             {
                 if (staged >= EventStagePerPass || !worldComp.CanStageMoreEvents) break;
                 var core = owner.TryGetComp<SynapseCorePawnComp>();
@@ -570,7 +574,7 @@ namespace RimSynapse.Conversations.Patches
                 string eventKey = mem.memId ?? mem.summary;
 
                 int partnersStaged = 0;
-                foreach (var partner in colonists)
+                foreach (var partner in participants)
                 {
                     if (partner == owner || partner.Dead) continue;
                     if (partnersStaged >= EventStagePartnersPerOwner || staged >= EventStagePerPass || !worldComp.CanStageMoreEvents) break;
