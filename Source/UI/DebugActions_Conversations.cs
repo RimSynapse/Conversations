@@ -251,7 +251,7 @@ namespace RimSynapse.Conversations.UI
             var mc = Find.CurrentMap?.GetComponent<SynapseConversationsMapComponent>();
             if (mc == null) { RimSynapse.SynapseLogger.Info("conversations", "[RimSynapse] No conversations map component."); return; }
             int n = mc.ForceEnvironmentalScan();
-            RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] Forced environmental scan evaluated {n} colonist(s).");
+            RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] Forced environmental scan evaluated {n} participant(s) (colonists + prisoners + slaves).");
         }
 
         /// <summary>

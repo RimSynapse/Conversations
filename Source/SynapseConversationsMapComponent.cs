@@ -99,33 +99,29 @@ namespace RimSynapse.Conversations
             // pawn id. The initiator set is the colony's own humanlikes (colonists + prisoners +
             // slaves, #41), taken from cached lists — NOT AllPawnsSpawned, which the 0.8 pass
             // deliberately moved away from (#32).
-            var initiators = ConversationInitiators();
-            for (int i = 0; i < initiators.Count; i++)
-            {
-                var pawn = initiators[i];
-                if (pawn == null || pawn.Downed) continue;
-                if (!pawn.IsHashIntervalTick(250)) continue;
-
-                EvaluatePawnEnvironment(pawn);
-            }
+            var mp = map.mapPawns;
+            ScanInitiators(mp.FreeColonistsSpawned, forced: false);
+            ScanInitiators(mp.PrisonersOfColonySpawned, forced: false);
+            ScanInitiators(mp.SlavesOfColonySpawned, forced: false);
         }
 
-        // Colony-related humanlikes that can INITIATE an ambient environmental comment (#41): colonists,
-        // prisoners of the colony, and slaves of the colony, from RimWorld's cached lists so the scan stays
-        // bounded and cheap (the 0.8 perf pass, #32, moved this off AllPawnsSpawned — keep it there). One
-        // reused buffer, no per-tick allocation. Quest lodgers and residents still take part as recipients
-        // and through the vanilla interaction-driven path; they just don't drive the ambient scan.
-        private readonly List<Pawn> _initiatorBuffer = new List<Pawn>();
-        private List<Pawn> ConversationInitiators()
+        // Run the environmental check over ONE cached colony list, hash-staggered. Iterating the three
+        // colony lists (colonists + prisoners + slaves, #41) in place keeps the per-tick cost the same
+        // shape as the 0.8 pass (#32): cached-list references, no copy, no per-tick allocation — just three
+        // lists instead of one. Quest lodgers and residents still take part as recipients and through the
+        // vanilla interaction-driven path; they don't drive the ambient scan. Returns the count evaluated.
+        private int ScanInitiators(List<Pawn> pawns, bool forced)
         {
-            _initiatorBuffer.Clear();
-            var mp = map.mapPawns;
-            _initiatorBuffer.AddRange(mp.FreeColonistsSpawned);
-            var prisoners = mp.PrisonersOfColonySpawned;
-            for (int i = 0; i < prisoners.Count; i++) _initiatorBuffer.Add(prisoners[i]);
-            var slaves = mp.SlavesOfColonySpawned;
-            for (int i = 0; i < slaves.Count; i++) _initiatorBuffer.Add(slaves[i]);
-            return _initiatorBuffer;
+            int n = 0;
+            for (int i = 0; i < pawns.Count; i++)
+            {
+                var pawn = pawns[i];
+                if (pawn == null || pawn.Downed) continue;
+                if (!forced && !pawn.IsHashIntervalTick(250)) continue;
+                EvaluatePawnEnvironment(pawn);
+                n++;
+            }
+            return n;
         }
 
         /// <summary>
@@ -165,16 +161,10 @@ namespace RimSynapse.Conversations
         public int ForceEnvironmentalScan()
         {
             if (Current.ProgramState != ProgramState.Playing) return 0;
-            int n = 0;
-            var initiators = ConversationInitiators();
-            for (int i = 0; i < initiators.Count; i++)
-            {
-                var pawn = initiators[i];
-                if (pawn == null || pawn.Downed) continue;
-                EvaluatePawnEnvironment(pawn);
-                n++;
-            }
-            return n;
+            var mp = map.mapPawns;
+            return ScanInitiators(mp.FreeColonistsSpawned, forced: true)
+                 + ScanInitiators(mp.PrisonersOfColonySpawned, forced: true)
+                 + ScanInitiators(mp.SlavesOfColonySpawned, forced: true);
         }
 
         private bool IsTalkative(Pawn pawn)
