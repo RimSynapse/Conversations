@@ -185,6 +185,57 @@ namespace RimSynapse.Conversations.UI
             RimSynapse.SynapseLogger.Info("conversations", $"--- {yes} may converse / {no} excluded ---");
         }
 
+        /// <summary>#52 validation: resolve an outsider's role, pick one of their authored barks, log it and
+        /// surface it as a speech bubble — so the line bank is inspectable without waiting for a raid or a
+        /// caravan. Reports why a pawn is skipped (colony-related, factionless, animal).</summary>
+        [DebugAction("RimSynapse", "Conversations: Force outsider bark (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceOutsiderBark(Pawn p)
+        {
+            if (p == null) return;
+            var role = Generation.OutsiderLineBank.ResolveRole(p);
+            if (role == null)
+            {
+                RimSynapse.SynapseLogger.Info("conversations",
+                    $"[#52] {p.LabelShort} is not an outsider we bark for (MayConverse={RimSynapse.SynapseCoreProviders.MayConverse(p)}, faction={p.Faction?.Name ?? "none"}, humanlike={p.RaceProps?.Humanlike}).");
+                return;
+            }
+            string line = Generation.OutsiderLineBank.PickLine(p);
+            RimSynapse.SynapseLogger.Info("conversations",
+                $"[#52] {p.LabelShort} ({role}, faction {p.Faction?.Name ?? "none"}) bark: \"{line ?? "(no matching line)"}\"");
+            if (!string.IsNullOrEmpty(line))
+                SpeechBubbleManager.AddBubble(p, null, line, 0, 4.5f);
+        }
+
+        /// <summary>#52 validation: spawn a hostile raider near the colony so the outsider line bank can be
+        /// exercised without waiting for a raid. Use "Force outsider bark" on the spawned pawn.</summary>
+        [DebugAction("RimSynapse", "Conversations: Spawn test raider (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void SpawnTestRaider()
+        {
+            var map = Find.CurrentMap;
+            if (map == null) return;
+            Pawn anchor = map.mapPawns.FreeColonists.FirstOrDefault();
+            IntVec3 near = anchor?.Position ?? map.Center;
+
+            Faction fac = Find.FactionManager.AllFactions
+                .FirstOrDefault(f => !f.IsPlayer && f.def.humanlikeFaction && !f.def.hidden && !f.temporary && f.HostileTo(Faction.OfPlayer))
+                ?? Find.FactionManager.AllFactions.FirstOrDefault(f => !f.IsPlayer && f.def.humanlikeFaction && !f.def.hidden && !f.temporary);
+            if (fac == null)
+            {
+                RimSynapse.SynapseLogger.Info("conversations", "[#52] No non-player humanlike faction to spawn a raider from.");
+                return;
+            }
+            if (!fac.HostileTo(Faction.OfPlayer))
+                fac.TryAffectGoodwillWith(Faction.OfPlayer, -200, false, false);
+
+            Pawn raider = PawnGenerator.GeneratePawn(new PawnGenerationRequest(
+                PawnKindDefOf.Villager, fac, PawnGenerationContext.NonPlayer, -1,
+                forceGenerateNewPawn: true, allowDowned: false));
+            IntVec3 cell = CellFinder.RandomClosewalkCellNear(near, map, 6);
+            GenSpawn.Spawn(raider, cell, map);
+            RimSynapse.SynapseLogger.Info("conversations",
+                $"[#52] Spawned test raider {raider.LabelShort} ({raider.Faction?.Name}, hostile={raider.Faction?.HostileTo(Faction.OfPlayer)}) at {cell}. Use 'Force outsider bark' on them.");
+        }
+
         /// <summary>Exercise the load-adaptive shed path (Conversations#38) headlessly: run a shed conversation
         /// for this pawn and the nearest colonist — no LLM call — and log the offsets applied plus the live
         /// backpressure readings, so we can confirm relationships still move and see whether real load would
