@@ -49,7 +49,11 @@ namespace RimSynapse.Conversations.Generation
                 "Make the two sound like DIFFERENT people and stay concrete about the subject you're given — " +
                 "no vague filler, no status-report lines, no restating their mood. " +
                 "Do NOT put names, labels, or quotation marks inside the line text. " +
-                "Return STRICTLY valid JSON and nothing else: {\"lines\": [\"first line\", \"reply\", \"...\"]}.";
+                "Each line names WHO says it. The speaker of every line MUST be exactly one of: " +
+                $"{initName}, {recipName}. Usually they alternate, but not rigidly. " +
+                "Return STRICTLY valid JSON and nothing else: " +
+                "{\"lines\": [{\"speaker\": \"" + initName + "\", \"text\": \"first line\"}, " +
+                "{\"speaker\": \"" + recipName + "\", \"text\": \"reply\"}]}.";
 
             string framingNote = beat.framing == BeatFraming.InitiatorTells
                 ? $" {recipName} was NOT there and is hearing this for the first time — they react to it, they do NOT claim to remember or have witnessed it."
@@ -63,7 +67,7 @@ namespace RimSynapse.Conversations.Generation
                 $"{initName} — {Identity(initiator)}. Right now: {beat.initiatorStance}.\n" +
                 $"{recipName} — {Identity(recipient)}. They respond: {beat.recipientStance}.{RelationshipTone.Note(initiator, recipient)}\n\n" +
                 $"What it's about: {beat.subject}.{framingNote}\n\n" +
-                $"Write their spoken exchange, alternating and STARTING with {initName}. Return the JSON now.{historyNote}";
+                $"Write their spoken exchange, STARTING with {initName}, tagging each line with its speaker. Return the JSON now.{historyNote}";
 
             return new ThinPrompt { system = system, user = user };
         }

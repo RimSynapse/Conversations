@@ -277,28 +277,29 @@ namespace RimSynapse.Conversations.Patches
                         return;
                     }
 
-                    // Lines only now — offsets are computed in code (Conversations#46), not by the model.
-                    var rawLines = ParseLinesLenient(result.content);
-                    var cleanLines = rawLines?
-                        .Where(l => !string.IsNullOrWhiteSpace(l))
-                        .Select(l => CleanLine(l, initiator, recipient))
-                        .Where(l => !string.IsNullOrWhiteSpace(l))
-                        .Take(MaxExchangeLines)
-                        .ToList();
+                    // Per-line speaker (#40): each line carries who says it. Resolve the tagged speaker to a
+                    // roster pawn by name (fuzzy), falling back to positional alternation when the model omits
+                    // or misspells it — so a small model that ignores the schema still yields a valid exchange.
+                    var roster = new[] { initiator, recipient };
+                    var speakerLines = ParseSpeakerLines(result.content);
 
-                    if (cleanLines == null || cleanLines.Count == 0)
+                    var dialogue = new List<LlmDialogueLine>();
+                    if (speakerLines != null)
+                    {
+                        for (int i = 0; i < speakerLines.Count && dialogue.Count < MaxExchangeLines; i++)
+                        {
+                            string text = CleanLine(speakerLines[i].text, initiator, recipient);
+                            if (string.IsNullOrWhiteSpace(text)) continue;
+                            Pawn speaker = ResolveSpeaker(speakerLines[i].speaker, roster, dialogue.Count);
+                            dialogue.Add(new LlmDialogueLine { sender = speaker.Name.ToStringShort, text = text });
+                        }
+                    }
+
+                    if (dialogue.Count == 0)
                     {
                         SynapseLogger.Warn("conversations", $"[beat] no lines parsed for {initiator.Name.ToStringShort} & {recipient.Name.ToStringShort}; raw: {Trunc(result.content, 400)}");
                         onComplete(null, beat, isContinuation);
                         return;
-                    }
-
-                    // Assign speakers by position: line 0 = initiator, then strictly alternating.
-                    var dialogue = new List<LlmDialogueLine>();
-                    for (int i = 0; i < cleanLines.Count; i++)
-                    {
-                        Pawn speaker = (i % 2 == 0) ? initiator : recipient;
-                        dialogue.Add(new LlmDialogueLine { sender = speaker.Name.ToStringShort, text = cleanLines[i] });
                     }
 
                     var off = Generation.SocialOffsetCalculator.Compute(initiator, recipient, beat);
@@ -401,6 +402,64 @@ namespace RimSynapse.Conversations.Patches
             }
             catch { /* give up — caller falls back */ }
             return null;
+        }
+
+        private class SpeakerLine { public string speaker; public string text; }
+
+        /// <summary>Parse the per-line-speaker schema (#40): {"lines":[{"speaker","text"}, ...]}. Tolerates
+        /// bare-string lines (old positional schema — speaker null, resolved by position) so a model that
+        /// ignores the schema still yields a usable exchange.</summary>
+        private static List<SpeakerLine> ParseSpeakerLines(string content)
+        {
+            if (string.IsNullOrEmpty(content)) return null;
+            var outLines = new List<SpeakerLine>();
+            try
+            {
+                var jo = Newtonsoft.Json.Linq.JObject.Parse(ExtractJson(content));
+                if (jo["lines"] is Newtonsoft.Json.Linq.JArray arr)
+                {
+                    foreach (var el in arr)
+                    {
+                        if (el is Newtonsoft.Json.Linq.JObject o)
+                        {
+                            string tx = o.Value<string>("text");
+                            if (!string.IsNullOrWhiteSpace(tx)) outLines.Add(new SpeakerLine { speaker = o.Value<string>("speaker"), text = tx });
+                        }
+                        else
+                        {
+                            string tx = el?.ToString();
+                            if (!string.IsNullOrWhiteSpace(tx)) outLines.Add(new SpeakerLine { speaker = null, text = tx });
+                        }
+                    }
+                    if (outLines.Count > 0) return outLines;
+                }
+            }
+            catch { /* fall through to the positional-string parser */ }
+
+            var strings = ParseLinesLenient(content);
+            if (strings == null) return null;
+            foreach (var s in strings)
+                if (!string.IsNullOrWhiteSpace(s)) outLines.Add(new SpeakerLine { speaker = null, text = s });
+            return outLines.Count > 0 ? outLines : null;
+        }
+
+        /// <summary>Map a tagged speaker name to one of the roster pawns (exact short-name, then fuzzy
+        /// contains for titles/last-names a small model may add), or fall back to positional alternation.</summary>
+        private static Pawn ResolveSpeaker(string name, Pawn[] roster, int positionalIndex)
+        {
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                string n = name.Trim();
+                for (int i = 0; i < roster.Length; i++)
+                    if (string.Equals(roster[i].Name.ToStringShort, n, StringComparison.OrdinalIgnoreCase)) return roster[i];
+                for (int i = 0; i < roster.Length; i++)
+                {
+                    string sn = roster[i].Name.ToStringShort;
+                    if (n.IndexOf(sn, StringComparison.OrdinalIgnoreCase) >= 0 || sn.IndexOf(n, StringComparison.OrdinalIgnoreCase) >= 0)
+                        return roster[i];
+                }
+            }
+            return roster[positionalIndex % roster.Length];
         }
 
         private static string Trunc(string s, int max)
