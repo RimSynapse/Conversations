@@ -103,6 +103,45 @@ namespace RimSynapse.Conversations
             ScanInitiators(mp.FreeColonistsSpawned, forced: false);
             ScanInitiators(mp.PrisonersOfColonySpawned, forced: false);
             ScanInitiators(mp.SlavesOfColonySpawned, forced: false);
+
+            // Outsiders (raiders, traders, visitors) get cheap authored barks (#52), on their own slow cadence.
+            ProcessOutsiderBarks();
+        }
+
+        // ── Outsider barks (#52) ─────────────────────────────────────────
+        // Pawns the colony has no relationship with never enter the LLM path; instead one of them occasionally
+        // mutters an authored line. Cost control: the AllPawnsSpawned sweep runs ONCE per scan interval (not
+        // per tick, and only at 1x where bubbles render), and produces at most ONE bark — ambient, not a
+        // chorus. A per-pawn cooldown keeps the same raider from repeating. Reservoir pick avoids allocating.
+        private int lastOutsiderScanTick = -1;
+        private readonly Dictionary<int, int> lastOutsiderBarkTick = new Dictionary<int, int>();
+        private const int OutsiderScanInterval = 360;    // ~6s at 1x: how often a bark is considered
+        private const int OutsiderBarkCooldown = 5000;   // per pawn: ~2 in-game hours between its barks
+
+        private void ProcessOutsiderBarks()
+        {
+            if (Find.TickManager.CurTimeSpeed != TimeSpeed.Normal) return; // bubbles only draw at 1x
+            int now = Find.TickManager.TicksGame;
+            if (lastOutsiderScanTick >= 0 && now - lastOutsiderScanTick < OutsiderScanInterval) return;
+            lastOutsiderScanTick = now;
+
+            Pawn pick = null;
+            int eligible = 0;
+            var all = map.mapPawns.AllPawnsSpawned;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var pawn = all[i];
+                if (Generation.OutsiderLineBank.ResolveRole(pawn) == null) continue;
+                if (lastOutsiderBarkTick.TryGetValue(pawn.thingIDNumber, out int last) && now - last < OutsiderBarkCooldown) continue;
+                eligible++;
+                if (Rand.Range(0, eligible) == 0) pick = pawn; // reservoir sample → uniform, zero-alloc
+            }
+            if (pick == null) return;
+
+            string line = Generation.OutsiderLineBank.PickLine(pick);
+            if (string.IsNullOrEmpty(line)) return;
+            lastOutsiderBarkTick[pick.thingIDNumber] = now;
+            UI.SpeechBubbleManager.AddBubble(pick, null, line, 0, 4.5f);
         }
 
         // Run the environmental check over ONE cached colony list, hash-staggered. Iterating the three
