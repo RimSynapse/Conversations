@@ -37,20 +37,111 @@ namespace RimSynapse.Conversations.Generation
         }
 
         /// <summary>Pick one bark for this pawn, or null if they are not an outsider or no line matches.
-        /// The choice is stable for a stretch of time (seeded by pawn id + a slow tick bucket) so a pawn
-        /// doesn't flicker between lines frame to frame, but does vary across a long visit.</summary>
+        /// Merges the authored baseline (<see cref="OutsiderChatterDef"/>) with any cached LLM flavor for this
+        /// role+faction, and lazily kicks off flavor generation for next time. The choice is stable for a
+        /// stretch of time (seeded by pawn id + a slow tick bucket) so a pawn doesn't flicker frame to frame,
+        /// but does vary across a long visit.</summary>
         public static string PickLine(Pawn pawn)
         {
             var role = ResolveRole(pawn);
             if (role == null) return null;
 
             var def = BestDef(pawn, role.Value);
-            if (def == null || def.lines.Count == 0) return null;
+            var authored = def?.lines;
 
-            // Vary slowly: a new bucket roughly every in-game hour (2500 ticks).
+            string key = FlavorKey(pawn, role.Value);
+            var worldComp = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            var flavor = worldComp?.GetOutsiderFlavor(key);
+
+            // Hybrid: kick off one-time LLM flavor generation for this bucket; this call uses what's on hand.
+            EnsureFlavor(pawn, role.Value, key, worldComp);
+
+            int total = (authored?.Count ?? 0) + (flavor?.Count ?? 0);
+            if (total == 0) return null;
+
             int bucket = (Find.TickManager?.TicksGame ?? 0) / 2500;
-            int idx = Mathf.Abs(pawn.thingIDNumber + bucket) % def.lines.Count;
-            return def.lines[idx];
+            int idx = Mathf.Abs(pawn.thingIDNumber + bucket) % total;
+            if (authored != null && idx < authored.Count) return authored[idx];
+            return flavor[idx - (authored?.Count ?? 0)];
+        }
+
+        private static string FlavorKey(Pawn pawn, OutsiderRole role)
+            => role + "|" + (pawn.Faction?.def?.defName ?? "none");
+
+        /// <summary>Lazily generate a small flavor bank for this role+faction once (hybrid layer 3). Uses the
+        /// LLM if a backend is configured; on success the lines are cached in the world component and reused
+        /// forever. If generation never runs or fails, the authored baseline stands in — a pawn is never
+        /// without a line.</summary>
+        private static void EnsureFlavor(Pawn pawn, OutsiderRole role, string key, SynapseConversationsWorldComponent worldComp)
+        {
+            if (worldComp == null || pawn.Faction == null) return;
+            if (worldComp.FlavorRequestedOrCached(key)) return;
+            worldComp.MarkFlavorRequested(key);
+
+            string factionName = pawn.Faction.Name ?? pawn.Faction.def?.label ?? "an unknown faction";
+            string ideoHint = "";
+            if (ModsConfig.IdeologyActive && pawn.Ideo?.memes != null && pawn.Ideo.memes.Count > 0)
+            {
+                var names = new List<string>();
+                for (int i = 0; i < pawn.Ideo.memes.Count && names.Count < 3; i++)
+                    if (!string.IsNullOrEmpty(pawn.Ideo.memes[i]?.label)) names.Add(pawn.Ideo.memes[i].label);
+                if (names.Count > 0) ideoHint = $" Their people believe in: {string.Join(", ", names)}.";
+            }
+
+            string system =
+                "You write very short spoken barks a RimWorld pawn mutters to themselves or a nearby comrade. " +
+                "Plain, in-character, everyday spoken words — NOT clinical or technical. One sentence each, under 15 words. " +
+                "Return STRICTLY valid JSON and nothing else: {\"lines\": [\"...\", \"...\", \"...\", \"...\"]}.";
+            string user = $"Write 4 barks for {RoleBlurb(role)} from the {factionName} faction.{ideoHint}";
+
+            RimSynapse.SynapseClient.PromptAsync(
+                RimSynapseConversationsMod.ModHandle,
+                system, user,
+                result =>
+                {
+                    if (!result.success || string.IsNullOrEmpty(result.content)) return;
+                    var lines = ParseLines(result.content);
+                    if (lines == null || lines.Count == 0) return;
+                    SynapseGameComponent.Enqueue(() =>
+                    {
+                        var wc = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+                        wc?.StoreOutsiderFlavor(key, lines);
+                        RimSynapse.SynapseLogger.Info("conversations", $"[#52] Cached {lines.Count} LLM flavor line(s) for {key}.");
+                    });
+                },
+                new RimSynapse.ChatOptions { priority = 5, requestName = "Outsider flavor", targetName = key });
+        }
+
+        private static string RoleBlurb(OutsiderRole role)
+        {
+            switch (role)
+            {
+                case OutsiderRole.RaidLeader: return "the leader of a raiding party staging an attack on a small frontier colony — command, patience, menace";
+                case OutsiderRole.RaidMember: return "a fighter in a raiding party waiting to attack a small frontier colony — impatience, greed, or contempt for the defenders";
+                case OutsiderRole.Trader:     return "a caravan trader visiting a small frontier colony to deal — practical, a little weary from the road";
+                default:                      return "a traveler passing through a small frontier colony, wanting no trouble";
+            }
+        }
+
+        private static List<string> ParseLines(string content)
+        {
+            try
+            {
+                int a = content.IndexOf('{');
+                int b = content.LastIndexOf('}');
+                if (a < 0 || b <= a) return null;
+                var jo = Newtonsoft.Json.Linq.JObject.Parse(content.Substring(a, b - a + 1));
+                var arr = jo["lines"] as Newtonsoft.Json.Linq.JArray;
+                if (arr == null) return null;
+                var outLines = new List<string>();
+                foreach (var t in arr)
+                {
+                    string s = t?.ToString()?.Trim();
+                    if (!string.IsNullOrEmpty(s)) outLines.Add(s);
+                }
+                return outLines;
+            }
+            catch { return null; }
         }
 
         /// <summary>Most specific matching def for this pawn: faction+meme &gt; faction &gt; meme &gt; role-only.</summary>

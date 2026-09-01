@@ -40,4 +40,20 @@ namespace RimSynapse.Conversations
         /// <summary>The authored barks. One is picked per utterance.</summary>
         public List<string> lines = new List<string>();
     }
+
+    /// <summary>Persisted LLM-generated flavor barks for one outsider bucket (#52 layer 3), keyed by
+    /// "role|factionDefName". Generated once per faction and scribed in the world component, merged on top of
+    /// the authored <see cref="OutsiderChatterDef"/> baseline.</summary>
+    public class OutsiderFlavorBank : IExposable
+    {
+        public string key;
+        public List<string> lines = new List<string>();
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref key, "key");
+            Scribe_Collections.Look(ref lines, "lines", LookMode.Value);
+            if (Scribe.mode == LoadSaveMode.LoadingVars && lines == null) lines = new List<string>();
+        }
+    }
 }

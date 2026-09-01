@@ -19,6 +19,34 @@ namespace RimSynapse.Conversations
         // ── Pre-seed pool (Conversations#28) ─────────────────────────────
         public List<PreGeneratedConversation> preGenPool = new List<PreGeneratedConversation>();
 
+        // ── Outsider flavor bank (#52 layer 3) ───────────────────────────
+        // LLM-generated barks for outsiders (raiders/traders/visitors), keyed by "role|factionDefName" and
+        // cached persistently so a faction's flavor is generated once and reused. Merged on top of the always-
+        // present authored baseline (OutsiderChatterDef); a pawn is never without a line even if generation
+        // never runs. The requested-set is in-memory only, so a failed generation is retried next session.
+        public List<OutsiderFlavorBank> outsiderFlavor = new List<OutsiderFlavorBank>();
+        [System.NonSerialized] private HashSet<string> flavorRequested = new HashSet<string>();
+
+        public List<string> GetOutsiderFlavor(string key)
+        {
+            for (int i = 0; i < outsiderFlavor.Count; i++)
+                if (outsiderFlavor[i]?.key == key) return outsiderFlavor[i].lines;
+            return null;
+        }
+
+        public bool FlavorRequestedOrCached(string key)
+            => flavorRequested.Contains(key) || GetOutsiderFlavor(key) != null;
+
+        public void MarkFlavorRequested(string key) => flavorRequested.Add(key);
+
+        public void StoreOutsiderFlavor(string key, List<string> lines)
+        {
+            if (string.IsNullOrEmpty(key) || lines == null || lines.Count == 0) return;
+            for (int i = 0; i < outsiderFlavor.Count; i++)
+                if (outsiderFlavor[i]?.key == key) { outsiderFlavor[i].lines = lines; return; }
+            outsiderFlavor.Add(new OutsiderFlavorBank { key = key, lines = lines });
+        }
+
         public const int MaxPreGenPerPair = 3;
         public const int MaxPreGenTotal = 40;
         private const int PreGenTtlTicks = 60000;      // 1 in-game day for chit-chat
@@ -35,11 +63,13 @@ namespace RimSynapse.Conversations
             base.ExposeData();
             Scribe_Collections.Look(ref pawnConversations, "pawnConversations", LookMode.Deep);
             Scribe_Collections.Look(ref preGenPool, "preGenPool", LookMode.Deep);
+            Scribe_Collections.Look(ref outsiderFlavor, "outsiderFlavor", LookMode.Deep);
 
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
                 if (pawnConversations == null) pawnConversations = new List<PawnConversation>();
                 if (preGenPool == null) preGenPool = new List<PreGeneratedConversation>();
+                if (outsiderFlavor == null) outsiderFlavor = new List<OutsiderFlavorBank>();
             }
         }
 
