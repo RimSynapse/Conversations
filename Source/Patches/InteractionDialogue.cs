@@ -56,12 +56,10 @@ namespace RimSynapse.Conversations.Patches
 
             int currentTick = Find.TickManager.TicksGame;
             
-            // Core slider memory setting support
-            float hours = 24f;
-            if (RimSynapseMod.Instance?.Settings != null)
-            {
-                hours = RimSynapseMod.Instance.Settings.shortTermMemoryHours;
-            }
+            // Conversation retention window (#40 history overhaul): within it, a fresh interaction continues
+            // the existing thread; past it, the thread is stale and a new one starts. Same knob that drives
+            // active pruning — separate from Core's shared short-term memory window.
+            float hours = RimSynapseConversationsMod.Settings?.conversationHistoryHours ?? 24f;
             int maxAgeTicks = Mathf.RoundToInt(hours * 2500f);
 
             if (conversation == null || (currentTick - conversation.lastTick > maxAgeTicks))

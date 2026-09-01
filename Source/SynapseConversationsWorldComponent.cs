@@ -80,10 +80,41 @@ namespace RimSynapse.Conversations
             if (tick % PoolMaintainInterval != 0) return;
 
             PrunePool(Find.TickManager.TicksAbs, tick);
+            // Actively prune conversation history past the retention window (#40 history overhaul) so the
+            // save stays lean and the transcript is bounded — instead of a pair's record living forever
+            // unless they happen to talk again.
+            PruneConversationHistory(tick);
             // Top-up is owned by the generator (patch class); it queues low-priority fills on idle cycles.
             Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.TryTopUpPreGenPool(this);
             // Pre-stage retellings of recent events for pairs that don't have them yet (#35).
             Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.TryStageEventConversations(this);
+        }
+
+        /// <summary>Debug/validation: prune now and report the before/after counts (#40 / #59).</summary>
+        public string DebugPruneHistoryNow()
+        {
+            int convBefore = pawnConversations.Count;
+            int msgBefore = pawnConversations.Sum(c => c?.messages?.Count ?? 0);
+            PruneConversationHistory(Find.TickManager.TicksGame);
+            int msgAfter = pawnConversations.Sum(c => c?.messages?.Count ?? 0);
+            float hours = RimSynapseConversationsMod.Settings?.conversationHistoryHours ?? 24f;
+            return $"retention {hours:F0}h — conversations {convBefore}->{pawnConversations.Count}, messages {msgBefore}->{msgAfter}";
+        }
+
+        /// <summary>Drop messages older than the retention window (default 24h, capped 72h) and any
+        /// conversation left empty. Runs on load too (via the tick cadence), so an upgraded save's long
+        /// backlog is trimmed back to the window.</summary>
+        private void PruneConversationHistory(int nowTick)
+        {
+            float hours = RimSynapseConversationsMod.Settings?.conversationHistoryHours ?? 24f;
+            int cutoff = nowTick - (int)(hours * 2500f);
+            for (int i = pawnConversations.Count - 1; i >= 0; i--)
+            {
+                var c = pawnConversations[i];
+                if (c?.messages == null) { pawnConversations.RemoveAt(i); continue; }
+                c.messages.RemoveAll(m => m == null || m.gameTick < cutoff);
+                if (c.messages.Count == 0) pawnConversations.RemoveAt(i);
+            }
         }
 
         private static string PairKey(string a, string b)

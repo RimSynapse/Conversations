@@ -206,6 +206,16 @@ namespace RimSynapse.Conversations.UI
                 SpeechBubbleManager.AddBubble(p, null, line, 0, 4.5f);
         }
 
+        /// <summary>#40/#59 validation: prune conversation history to the retention window right now and log
+        /// the before/after counts, instead of waiting for the periodic maintenance tick.</summary>
+        [DebugAction("RimSynapse", "Conversations: Prune history now (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void PruneHistoryNow()
+        {
+            var wc = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            if (wc == null) return;
+            RimSynapse.SynapseLogger.Info("conversations", "[#40] Pruned conversation history — " + wc.DebugPruneHistoryNow());
+        }
+
         /// <summary>#52 validation: spawn a hostile raider near the colony so the outsider line bank can be
         /// exercised without waiting for a raid. Use "Force outsider bark" on the spawned pawn.</summary>
         [DebugAction("RimSynapse", "Conversations: Spawn test raider (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]

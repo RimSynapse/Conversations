@@ -38,6 +38,13 @@ namespace RimSynapse.Conversations
         public float bubbleGreen = 0.12f;
         public float bubbleBlue = 0.12f;
         public float bubbleAlpha = 0.85f;
+        // How long pawn-to-pawn conversation history is kept before it is actively pruned from the save
+        // (default 24 in-game hours, capped at 72). Distinct from Core's shared short-term memory window;
+        // this governs only the Conversations transcript. Also the window within which a fresh interaction
+        // continues the existing thread instead of starting a new one.
+        public const float MinHistoryHours = 6f;
+        public const float MaxHistoryHours = 72f;
+        public float conversationHistoryHours = 24f;
 
         public override void ExposeData()
         {
@@ -56,6 +63,7 @@ namespace RimSynapse.Conversations
             Scribe_Values.Look(ref bubbleGreen, "bubbleGreen", 0.12f);
             Scribe_Values.Look(ref bubbleBlue, "bubbleBlue", 0.12f);
             Scribe_Values.Look(ref bubbleAlpha, "bubbleAlpha", 0.85f);
+            Scribe_Values.Look(ref conversationHistoryHours, "conversationHistoryHours", 24f);
             if (disabledTopicDefNames == null)
             {
                 disabledTopicDefNames = new List<string>();

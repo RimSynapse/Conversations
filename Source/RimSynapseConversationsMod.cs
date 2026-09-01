@@ -33,17 +33,15 @@ namespace RimSynapse.Conversations
             Listing_Standard listingStandard = new Listing_Standard();
             listingStandard.Begin(inRect);
 
-            if (RimSynapse.RimSynapseMod.Instance?.Settings != null)
-            {
-                var settings = RimSynapse.RimSynapseMod.Instance.Settings;
-                settings.shortTermMemoryHours = listingStandard.SliderLabeled(
-                    $"Chat History Retention: {settings.shortTermMemoryHours:F0} hours",
-                    settings.shortTermMemoryHours, 6f, 168f,
-                    1f,
-                    "Configure how many in-game hours chat history between pawns is retained before it naturally fades."
-                );
-                listingStandard.Gap(12f);
-            }
+            Settings.conversationHistoryHours = listingStandard.SliderLabeled(
+                $"Chat History Retention: {Settings.conversationHistoryHours:F0} hours",
+                Settings.conversationHistoryHours,
+                RimSynapseConversationsSettings.MinHistoryHours, RimSynapseConversationsSettings.MaxHistoryHours,
+                1f,
+                "How many in-game hours of pawn conversation history is kept before it is pruned (default 24, max 72). " +
+                "Also the window in which a new interaction continues the existing thread instead of starting fresh."
+            );
+            listingStandard.Gap(12f);
 
             listingStandard.CheckboxLabeled(
                 "Experimental: Pre-seed conversations (may serve stale context)",
