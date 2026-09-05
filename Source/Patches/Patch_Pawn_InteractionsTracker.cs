@@ -170,30 +170,13 @@ namespace RimSynapse.Conversations.Patches
                     chance *= 0.25f; // Doctors remain professional/silent
                 }
 
+                // Psychology is a hard dependency now (#60) — direct typed access, no reflection.
                 float trust = 0f;
-                var psychComp = recipient.AllComps.FirstOrDefault(c => c.GetType().FullName == "RimSynapse.Psychology.Comps.SynapsePawnComp");
-                if (psychComp != null)
+                var psychComp = recipient.TryGetComp<RimSynapse.Psychology.Comps.SynapsePawnComp>();
+                if (psychComp?.socialNetwork != null
+                    && psychComp.socialNetwork.TryGetValue(initiator.GetUniqueLoadID(), out var record) && record != null)
                 {
-                    var socialNetworkField = psychComp.GetType().GetField("socialNetwork");
-                    if (socialNetworkField != null)
-                    {
-                        if (socialNetworkField.GetValue(psychComp) is System.Collections.IDictionary dict)
-                        {
-                            string initId = initiator.GetUniqueLoadID();
-                            if (dict.Contains(initId))
-                            {
-                                var record = dict[initId];
-                                if (record != null)
-                                {
-                                    var trustField = record.GetType().GetField("trust");
-                                    if (trustField != null)
-                                    {
-                                        trust = (float)trustField.GetValue(record);
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    trust = record.trust;
                 }
 
                 if (trust > 20f)

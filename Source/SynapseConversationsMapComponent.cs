@@ -217,42 +217,10 @@ namespace RimSynapse.Conversations
                 if (pawn.story.traits.HasTrait(TraitDefOf.Kind)) return true;
             }
 
-            // High extraversion check in Psychology comp if present. Conversations cannot
-            // reference Psychology's assembly, so this stays reflection-based — but the type and
-            // FieldInfo are resolved ONCE and cached (previously re-reflected per pawn per scan).
-            EnsureExtraversionField();
-            if (_extraversionField != null)
-            {
-                var comps = pawn.AllComps;
-                for (int j = 0; j < comps.Count; j++)
-                {
-                    if (_synapsePawnCompType.IsInstanceOfType(comps[j]))
-                    {
-                        float val = (float)_extraversionField.GetValue(comps[j]);
-                        return val > 0.6f;
-                    }
-                }
-            }
-
+            // (Gutted: the old reflection read of a Psychology `extraversion` field — that field no longer
+            // exists in Psychology, so the check had been silently returning null for ages. Dead code. The
+            // psychology-driven trigger rewrite (#60) will replace talkativeness with a real disposition read.)
             return false;
-        }
-
-        // Cached reflection handles for Psychology's SynapsePawnComp.extraversion (soft, optional
-        // cross-mod read). Resolved once; if Psychology is absent both stay null and the check
-        // is skipped.
-        private static System.Type _synapsePawnCompType;
-        private static System.Reflection.FieldInfo _extraversionField;
-        private static bool _extraversionResolved;
-
-        private static void EnsureExtraversionField()
-        {
-            if (_extraversionResolved) return;
-            _extraversionResolved = true;
-            _synapsePawnCompType = GenTypes.GetTypeInAnyAssembly("RimSynapse.Psychology.Comps.SynapsePawnComp");
-            if (_synapsePawnCompType != null)
-            {
-                _extraversionField = _synapsePawnCompType.GetField("extraversion");
-            }
         }
 
         private void TryTriggerEnvironmentalConversation(Pawn initiator, string type, string description)

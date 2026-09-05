@@ -52,7 +52,11 @@
             <HintPath>..\..\Core\Assemblies\RimSynapseCore.dll</HintPath>
             <Private>false</Private>
         </Reference>
-        
+        <Reference Include="RimSynapsePsychology">
+            <HintPath>..\..\Psychology\Assemblies\RimSynapsePsychology.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+
         <Reference Include="System.Net.Http" />
     </ItemGroup>
 

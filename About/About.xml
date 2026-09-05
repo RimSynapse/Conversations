@@ -16,6 +16,12 @@
             <downloadUrl>https://github.com/RimSynapse/Core/releases/latest</downloadUrl>
             <steamWorkshopUrl>steam://url/CommunityFilePage/3760829776</steamWorkshopUrl>
         </li>
+        <li>
+            <packageId>RimSynapse.Psychology</packageId>
+            <displayName>RimSynapse - Psychology</displayName>
+            <downloadUrl>https://github.com/RimSynapse/Psychology/releases/latest</downloadUrl>
+            <steamWorkshopUrl>steam://url/CommunityFilePage/3760830041</steamWorkshopUrl>
+        </li>
     </modDependencies>
     <loadAfter>
         <li>RimSynapse.Core</li>

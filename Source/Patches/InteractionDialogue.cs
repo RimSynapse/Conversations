@@ -790,42 +790,17 @@ namespace RimSynapse.Conversations.Patches
 
         private static void AdjustRelationship(Pawn pawn, string otherId, float trustOffset, float familiarityOffset)
         {
-            var comp = pawn.AllComps.FirstOrDefault(c => c.GetType().FullName == "RimSynapse.Psychology.Comps.SynapsePawnComp");
-            if (comp == null) return;
+            // Psychology is a hard dependency now (#60) — direct typed access, no reflection.
+            var comp = pawn.TryGetComp<RimSynapse.Psychology.Comps.SynapsePawnComp>();
+            if (comp?.socialNetwork == null) return;
 
-            var socialNetworkField = comp.GetType().GetField("socialNetwork");
-            if (socialNetworkField == null) return;
-
-            var dict = socialNetworkField.GetValue(comp) as System.Collections.IDictionary;
-            if (dict == null) return;
-
-            if (!dict.Contains(otherId))
+            if (!comp.socialNetwork.TryGetValue(otherId, out var record) || record == null)
             {
-                var recordType = socialNetworkField.FieldType.GetGenericArguments()[1];
-                var newRecord = Activator.CreateInstance(recordType);
-                dict[otherId] = newRecord;
+                record = new RimSynapse.Psychology.Models.SocialRecord();
+                comp.socialNetwork[otherId] = record;
             }
-
-            var record = dict[otherId];
-            if (record != null)
-            {
-                var trustField = record.GetType().GetField("trust");
-                var familiarityField = record.GetType().GetField("familiarity");
-
-                if (trustField != null)
-                {
-                    float currentTrust = (float)trustField.GetValue(record);
-                    float newTrust = Mathf.Clamp(currentTrust + trustOffset, -100f, 100f);
-                    trustField.SetValue(record, newTrust);
-                }
-
-                if (familiarityField != null)
-                {
-                    float currentFam = (float)familiarityField.GetValue(record);
-                    float newFam = Mathf.Clamp(currentFam + familiarityOffset, 0f, 100f);
-                    familiarityField.SetValue(record, newFam);
-                }
-            }
+            record.trust = Mathf.Clamp(record.trust + trustOffset, -100f, 100f);
+            record.familiarity = Mathf.Clamp(record.familiarity + familiarityOffset, 0f, 100f);
         }
 
         internal static void ApplyVanillaAffinityThought(Pawn initiator, Pawn recipient, float affinityOffset)
