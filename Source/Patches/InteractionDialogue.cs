@@ -532,7 +532,9 @@ namespace RimSynapse.Conversations.Patches
             {
                 if (parsed == null || parsed.dialogue == null || parsed.dialogue.Count == 0)
                 {
-                    TriggerFallback(initiator, recipient, intDef, conversation);
+                    // Generation failed — leave no line. (Gutted the old TriggerFallback, which fabricated a
+                    // generic vanilla-log / "initiated a conversation about X" line: non-psychology filler that
+                    // polluted history. A failed conversation simply produces nothing, #61.)
                     return;
                 }
 
@@ -745,34 +747,6 @@ namespace RimSynapse.Conversations.Patches
             if (deep)
                 return candidates.OrderByDescending(m => m.salience > 0f ? m.salience : m.weight).First();
             return candidates.OrderByDescending(m => m.absTick).Take(5).RandomElement();
-        }
-
-        private static void TriggerFallback(Pawn initiator, Pawn recipient, InteractionDef intDef, PawnConversation conversation)
-        {
-            SynapseGameComponent.Enqueue(() =>
-            {
-                if (!initiator.Spawned || initiator.Dead || !recipient.Spawned || recipient.Dead) return;
-
-                var lastLog = Find.PlayLog.AllEntries
-                    .OfType<PlayLogEntry_Interaction>()
-                    .FirstOrDefault(e => 
-                    {
-                        var init = Traverse.Create(e).Field("initiator").GetValue<Pawn>();
-                        var recip = Traverse.Create(e).Field("recipient").GetValue<Pawn>();
-                        return init == initiator && recip == recipient;
-                    });
-
-                string fallbackReply = lastLog != null 
-                    ? lastLog.ToGameStringFromPOV(initiator) 
-                    : $"{initiator.Name.ToStringShort} initiated a conversation about {intDef.label}.";
-
-                conversation.messages.Add(new SynapseConversationMessage(initiator.ThingID, fallbackReply, Find.TickManager.TicksGame));
-                conversation.lastTick = Find.TickManager.TicksGame;
-                while (conversation.messages.Count > 50)
-                {
-                    conversation.messages.RemoveAt(0);
-                }
-            });
         }
 
         internal static void ApplyPsychologyOffsets(Pawn initiator, Pawn recipient, float trustOffset, float familiarityOffset)
