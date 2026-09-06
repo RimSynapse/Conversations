@@ -14,6 +14,9 @@ namespace RimSynapse.Conversations
         public string initiatorStatement;
         public string recipientResponse;
         public string topicDefName;
+        /// <summary>Talking point this exchange was pregenerated for (#60 §1) — the pool key becomes
+        /// (speaker, listener, pointId). Null for legacy topic-keyed entries.</summary>
+        public string pointId;
         // Event anchoring (#35): non-null marks this as a pre-staged retelling of a specific episode.
         // eventKey is the source EventReflection memory key so a pair tells a given event only once.
         public string eventKey;
@@ -32,6 +35,7 @@ namespace RimSynapse.Conversations
             Scribe_Values.Look(ref initiatorStatement, "initiatorStatement");
             Scribe_Values.Look(ref recipientResponse, "recipientResponse");
             Scribe_Values.Look(ref topicDefName, "topicDefName");
+            Scribe_Values.Look(ref pointId, "pointId");
             Scribe_Values.Look(ref eventKey, "eventKey");
             Scribe_Values.Look(ref eventSummary, "eventSummary");
             Scribe_Values.Look(ref isContinuation, "isContinuation", false);
