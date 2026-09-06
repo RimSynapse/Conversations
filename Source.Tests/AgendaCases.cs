@@ -185,7 +185,6 @@ namespace RimSynapse.Conversations.Tests
                 Assert.True(popped != null && popped.recipientId == "B", "pop returns the exact entry");
                 Assert.True(wc.PopPooledPoint("A", "B", "p1") == null, "an entry pops exactly once");
                 Assert.Equal(1, wc.PointPreGenCount, "the other listener's entry remains");
-                Assert.Equal(0, wc.PoolCountForPair("A", "C"), "point entries do not count against the legacy per-pair cap");
 
                 string key = AgendaPregeneration.PoolKey("A", "B", "p2");
                 Assert.True(wc.TryMarkPending(key, 100), "first claim succeeds");
@@ -194,6 +193,49 @@ namespace RimSynapse.Conversations.Tests
                 Assert.True(wc.TryMarkPending(key, 300), "cleared claim can be retaken");
                 Assert.True(wc.TryMarkPending(key, 300 + SynapseConversationsWorldComponent.PendingTimeoutTicks), "a stale claim self-heals after the timeout");
                 return $"pool={wc.PointPreGenCount} pending={wc.PendingPointGenCount}";
+            });
+
+            // Trigger serve → consume (step 4) on two real spawned colonists, with a hand-built pooled
+            // exchange (no LLM): lines land in the pair record, the point is consumed for that listener, and
+            // an Only-audience point that has reached its target leaves the agenda.
+            yield return new SynapseTestCase("Conversations_TriggerServesAndConsumes", () =>
+            {
+                var map = Find.CurrentMap;
+                Assert.True(map != null, "no map available");
+                var colonists = map.mapPawns.FreeColonistsSpawned.Where(c => c.RaceProps.Humanlike).Take(2).ToList();
+                Assert.True(colonists.Count == 2, "needs two spawned colonists");
+                Pawn a = colonists[0], b = colonists[1];
+                var wc = Find.World.GetComponent<SynapseConversationsWorldComponent>();
+                var mc = map.GetComponent<SynapseConversationsMapComponent>();
+                var agenda = a.TryGetComp<SynapseConversationAgendaComp>();
+                Assert.True(wc != null && agenda != null, "world component and agenda comp present (injection)");
+
+                var point = new TalkingPoint { subjectMemId = "test:serve", subjectSummary = "a test subject", salience = 0.99f,
+                    audience = AudienceKind.Only, audiencePawnId = b.ThingID, formedTick = Find.TickManager.TicksGame };
+                Assert.True(agenda.Add(point), "test point goes on the agenda");
+                var conv = new PreGeneratedConversation
+                {
+                    initiatorId = a.ThingID, recipientId = b.ThingID, pointId = point.id, topicDefName = "test:serve",
+                    initiatorStatement = "test line one", recipientResponse = "test line two",
+                    lines = new List<PooledLine> { new PooledLine(a.ThingID, "test line one"), new PooledLine(b.ThingID, "test line two"), new PooledLine(a.ThingID, "test line three") },
+                    generatedAtTick = Find.TickManager.TicksGame, generatedAtAbsTick = Find.TickManager.TicksAbs
+                };
+                wc.AddPointPreGen(conv);
+                Assert.True(wc.HasPooledPoint(a.ThingID, b.ThingID, point.id), "pooled for the pair");
+
+                var popped = wc.PopPooledPoint(a.ThingID, b.ThingID, point.id);
+                int now = Find.TickManager.TicksGame;
+                AgendaTrigger.Serve(a, b, point, agenda, popped, wc, mc, now);
+
+                var record = SynapseConversationsWorldComponent.GetOrStartConversation(wc, a, b, now);
+                Assert.True(record.messages.Count > 0 && record.messages.Last().message == "test line one", "first line landed in the pair record");
+                Assert.True(point.Told(b.ThingID), "the point is consumed for the listener");
+                Assert.True(point.FullyTold, "an Only point told to its target is spent");
+                Assert.True(agenda.Find(point.id) == null, "a spent point left the agenda");
+                Assert.True(agenda.IsRetired("test:serve"), "its subject is retired");
+                Assert.False(wc.HasPooledPoint(a.ThingID, b.ThingID, point.id), "the pooled entry was consumed");
+                Assert.True(mc == null || mc.IsInPlayback(a), "remaining lines are drip-feeding");
+                return $"{a.LabelShort} -> {b.LabelShort}: served, told, spent";
             });
         }
     }

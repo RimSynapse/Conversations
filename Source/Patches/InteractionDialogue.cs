@@ -40,113 +40,6 @@ namespace RimSynapse.Conversations.Patches
             public List<string> lines { get; set; }
         }
 
-        private static void TriggerLlmDialogue(Pawn initiator, Pawn recipient, InteractionDef intDef)
-        {
-            var worldComp = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
-            if (worldComp == null) return;
-
-            string idA = initiator.ThingID;
-            string idB = recipient.ThingID;
-            PawnConversation conversation = worldComp.pawnConversations.FirstOrDefault(c => 
-                (c.pawnAId == idA && c.pawnBId == idB) || (c.pawnAId == idB && c.pawnBId == idA));
-
-            int currentTick = Find.TickManager.TicksGame;
-            
-            // Conversation retention window (#40 history overhaul): within it, a fresh interaction continues
-            // the existing thread; past it, the thread is stale and a new one starts. Same knob that drives
-            // active pruning — separate from Core's shared short-term memory window.
-            float hours = RimSynapseConversationsMod.Settings?.conversationHistoryHours ?? 24f;
-            int maxAgeTicks = Mathf.RoundToInt(hours * 2500f);
-
-            if (conversation == null || (currentTick - conversation.lastTick > maxAgeTicks))
-            {
-                if (conversation != null)
-                {
-                    worldComp.pawnConversations.Remove(conversation);
-                }
-                conversation = new PawnConversation(idA, idB, currentTick);
-                worldComp.pawnConversations.Add(conversation);
-            }
-
-            // Check if game is sped up
-            bool isSpedUp = Find.TickManager.CurTimeSpeed != TimeSpeed.Normal;
-
-            // Pre-seeding is EXPERIMENTAL and off by default (#29): it can serve stale context, and the
-            // recipient response must be dynamic regardless. When off, every conversation is generated
-            // live so we can measure real latency and context sufficiency.
-            bool useCache = (RimSynapseConversationsMod.Settings?.experimentalPreSeeding ?? false) && !isSpedUp;
-
-            if (useCache)
-            {
-                var cached = worldComp.PopFreshPreGen(initiator, recipient);
-                if (cached != null)
-                {
-                    // If cached as continuation but more than 1 hour passed since last actual interaction, discard it
-                    if (cached.isContinuation && (currentTick - conversation.lastTick > 2500))
-                    {
-                        cached = null;
-                    }
-
-                    if (cached != null)
-                    {
-                        // Apply dialogue instantly
-                        conversation.messages.Add(new SynapseConversationMessage(idA, cached.initiatorStatement, currentTick));
-                        conversation.messages.Add(new SynapseConversationMessage(idB, cached.recipientResponse, currentTick));
-                        conversation.lastTick = currentTick;
-
-                        if (Find.TickManager.CurTimeSpeed == TimeSpeed.Normal)
-                        {
-                            UI.SpeechBubbleManager.AddBubble(initiator, recipient, cached.initiatorStatement, 0, 4.5f);
-                            UI.SpeechBubbleManager.AddBubble(recipient, initiator, cached.recipientResponse, 270, 4.5f);
-                        }
-
-                        ApplyPsychologyOffsets(initiator, recipient, cached.trustOffset, cached.familiarityOffset);
-                        ApplyVanillaAffinityThought(initiator, recipient, cached.affinityOffset);
-
-                        string tName = string.IsNullOrEmpty(cached.topicDefName) ? "Social" : cached.topicDefName;
-                        PropagateContextMemories(initiator, recipient, tName, cached.initiatorStatement);
-                        conversation.PushRecentTopic(cached.topicDefName);
-                        float poolDist = initiator.Position.DistanceTo(recipient.Position);
-                        ConversationMetrics.Add(initiator, recipient, cached.topicDefName, cached.topicDefName == "burden", poolDist, poolDist, 0, 0, "pool");
-
-                        // Queue next background pre-generation to refill the cache
-                        QueuePreGeneration(initiator, recipient, intDef);
-                        return;
-                    }
-                }
-            }
-
-            // Pre-staged event retelling (#35): with a chance, serve a ready-made retelling of a recent
-            // event for this pair instead of generating live — consumed once (unique per pair+event).
-            if ((RimSynapseConversationsMod.Settings?.preStageEventConversations ?? true) && !isSpedUp
-                && Rand.Value < (RimSynapseConversationsMod.Settings?.eventPreStageFireChance ?? 0.30f))
-            {
-                var staged = worldComp.PopEventPreGenForPair(initiator, recipient);
-                if (staged != null)
-                {
-                    ApplyStagedEventConversation(initiator, recipient, conversation, staged, currentTick);
-                    return;
-                }
-            }
-
-            // Load-adaptive shedding (#38): if the LLM can't keep up, skip the (unwatchable) generation
-            // and just let the relationship evolve via the code-computed offsets (#46) — no LLM call.
-            if (ShouldShedForLoad())
-            {
-                ApplyShedConversation(initiator, recipient, intDef, conversation, currentTick);
-                return;
-            }
-
-            // Cache miss / caching disabled / game is sped up
-            GenerateConversationAndApply(initiator, recipient, intDef, conversation, isSpedUp);
-
-            if (useCache)
-            {
-                // Queue a pre-generation in the background to refill cache for next time
-                QueuePreGeneration(initiator, recipient, intDef);
-            }
-        }
-
         /// <summary>Is the shared LLM pipeline behind enough that conversations — the lowest-value LLM
         /// consumer — should yield (Conversations#38)? A backlog in the queue or an active Core throttle
         /// both mean the model can't keep up; a bigger colony, a slower provider and higher game speed all
@@ -164,52 +57,6 @@ namespace RimSynapse.Conversations.Patches
         // conversations should yield to higher-value work (storyteller, news).
         private const float ShedThrottleFloor = 0.5f;
 
-        /// <summary>The cheap, no-LLM outcome for a conversation shed under load (Conversations#38): resolve a
-        /// minimal beat, apply the code-computed social offsets so opinion/relationship still move, and record
-        /// the interaction — but generate no dialogue text. No bubble (they only render at 1x anyway).</summary>
-        private static void ApplyShedConversation(Pawn initiator, Pawn recipient, InteractionDef intDef, PawnConversation conversation, int currentTick)
-        {
-            bool isDeep = intDef == InteractionDefOf.DeepTalk;
-            var beat = new Generation.ConversationBeat { isDeep = isDeep, tone = Generation.BeatTone.Casual };
-            var off = Generation.SocialOffsetCalculator.Compute(initiator, recipient, beat);
-
-            ApplyPsychologyOffsets(initiator, recipient, off.trust, off.familiarity);
-            ApplyVanillaAffinityThought(initiator, recipient, off.affinity);
-            conversation.lastTick = currentTick;
-
-            float dist = (initiator.Spawned && recipient.Spawned) ? initiator.Position.DistanceTo(recipient.Position) : -1f;
-            ConversationMetrics.Add(initiator, recipient, beat.topicKey, beat.isDeep, dist, dist, 0, 0, "shed");
-        }
-
-        /// <summary>Headless validation hook for the shed path (Conversations#38): run a shed conversation for
-        /// this pair right now and return a one-line summary of the offsets applied, so a debug action can
-        /// confirm relationships still move with no LLM call.</summary>
-        public static string DebugForceShed(Pawn initiator, Pawn recipient, bool deep)
-        {
-            var worldComp = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
-            if (worldComp == null) return "no world component";
-            string idA = initiator.ThingID, idB = recipient.ThingID;
-            var conversation = worldComp.pawnConversations.FirstOrDefault(c =>
-                (c.pawnAId == idA && c.pawnBId == idB) || (c.pawnAId == idB && c.pawnBId == idA));
-            if (conversation == null)
-            {
-                conversation = new PawnConversation(idA, idB, Find.TickManager.TicksGame);
-                worldComp.pawnConversations.Add(conversation);
-            }
-
-            int opBefore = recipient.relations?.OpinionOf(initiator) ?? 0;
-            var beat = new Generation.ConversationBeat { isDeep = deep, tone = Generation.BeatTone.Casual };
-            var off = Generation.SocialOffsetCalculator.Compute(initiator, recipient, beat);
-            ApplyShedConversation(initiator, recipient, deep ? InteractionDefOf.DeepTalk : InteractionDefOf.Chitchat, conversation, Find.TickManager.TicksGame);
-            int opAfter = recipient.relations?.OpinionOf(initiator) ?? 0;
-
-            return $"shed {initiator.LabelShort}->{recipient.LabelShort} deep={deep} " +
-                   $"offsets(trust={off.trust:F2} fam={off.familiarity:F2} aff={off.affinity:F2}) " +
-                   $"opinion {opBefore}->{opAfter} | queueDepth={SynapseClient.TotalQueueDepth} throttle={SynapseClient.ThrottleLevel:F2} wouldShed={ShouldShedForLoad()}";
-        }
-
-        // One call yields a whole alternating back-and-forth (the LLM sizes it to the scenario); the
-        // first line lands now and the rest drip-feed while the pawns stay together (Conversations#31).
         internal const int MaxExchangeLines = 12;
 
         private static void PerformSequentialDialogueGeneration(Pawn initiator, Pawn recipient, InteractionDef intDef, Action<LlmConversationResponse, Generation.ConversationBeat, bool> onComplete, Generation.ConversationBeat presetBeat = null)
@@ -316,46 +163,16 @@ namespace RimSynapse.Conversations.Patches
             );
         }
 
-        private static void QueuePreGeneration(Pawn initiator, Pawn recipient, InteractionDef intDef)
-        {
-            if (initiator == null || recipient == null || !initiator.Spawned || !recipient.Spawned) return;
-            if (ShouldShedForLoad()) return; // background pre-gen only adds load — hold off while behind (#38)
-
-            string idA = initiator.ThingID;
-            string idB = recipient.ThingID;
-
-            var worldComp = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
-            if (worldComp == null || !worldComp.PairNeedsFill(idA, idB)) return;
-
-            PerformSequentialDialogueGeneration(initiator, recipient, intDef, (parsed, beat, isContinuation) =>
-            {
-                // Multi-line exchanges (#31) reduce to a 2-line pre-gen: store the first exchange pair.
-                if (parsed != null && parsed.dialogue != null && parsed.dialogue.Count >= 2)
-                {
-                    var preGen = new PreGeneratedConversation
-                    {
-                        initiatorId = idA,
-                        recipientId = idB,
-                        initiatorStatement = parsed.dialogue[0].text,
-                        recipientResponse = parsed.dialogue[1].text,
-                        topicDefName = beat?.topicKey ?? "Social",
-                        isContinuation = isContinuation,
-                        generatedAtTick = Find.TickManager.TicksGame,
-                        generatedAtAbsTick = Find.TickManager.TicksAbs,
-                        trustOffset = parsed.trustOffset,
-                        familiarityOffset = parsed.familiarityOffset,
-                        affinityOffset = parsed.affinityOffset
-                    };
-                    worldComp.AddToPool(preGen);
-                }
-            });
-        }
-
-        /// <summary>Force a live conversation between two pawns now (playtest / debug trigger, #29).</summary>
+        /// <summary>DEBUG-ONLY live generation (#29). Since #60 step 4 this is the only path that generates at
+        /// interaction time — the game trigger serves pregenerated agenda points (AgendaTrigger). Kept so a
+        /// playtester can force an exchange without waiting for pregeneration.</summary>
         public static void ForceConversation(Pawn initiator, Pawn recipient, InteractionDef intDef)
         {
             if (initiator == null || recipient == null || intDef == null) return;
-            TriggerLlmDialogue(initiator, recipient, intDef);
+            var worldComp = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            if (worldComp == null) return;
+            var conversation = SynapseConversationsWorldComponent.GetOrStartConversation(worldComp, initiator, recipient, Find.TickManager.TicksGame);
+            GenerateConversationAndApply(initiator, recipient, intDef, conversation, Find.TickManager.CurTimeSpeed != TimeSpeed.Normal);
         }
 
         /// <summary>A human-readable label for the beat, used when tagging the social memories a conversation
@@ -487,33 +304,6 @@ namespace RimSynapse.Conversations.Patches
             return s;
         }
 
-        /// <summary>
-        /// Proactively top up the pre-seed pool on idle cycles (called from the world component's rare
-        /// tick): pairs that have been talking and still have room get one more low-priority pre-gen,
-        /// biased toward deep talk since it's the expensive, stall-prone path. Bounded per pass.
-        /// </summary>
-        public static void TryTopUpPreGenPool(SynapseConversationsWorldComponent worldComp)
-        {
-            if (worldComp == null || worldComp.PoolAtTotalCap) return;
-            if (!(RimSynapseConversationsMod.Settings?.experimentalPreSeeding ?? false)) return;
-
-            const int maxPerPass = 2;
-            int queued = 0;
-            foreach (var conv in worldComp.pawnConversations)
-            {
-                if (queued >= maxPerPass || worldComp.PoolAtTotalCap) break;
-                if (conv == null || !worldComp.PairNeedsFill(conv.pawnAId, conv.pawnBId)) continue;
-
-                var a = SynapseConversationsWorldComponent.PawnFromId(conv.pawnAId);
-                var b = SynapseConversationsWorldComponent.PawnFromId(conv.pawnBId);
-                if (a == null || b == null || a.Dead || b.Dead) continue;
-
-                var chosen = Rand.Value < 0.5f ? InteractionDefOf.DeepTalk : InteractionDefOf.Chitchat;
-                QueuePreGeneration(a, b, chosen);
-                queued++;
-            }
-        }
-
         private static void GenerateConversationAndApply(Pawn initiator, Pawn recipient, InteractionDef intDef, PawnConversation conversation, bool isSpedUp, Generation.ConversationBeat presetBeat = null)
         {
             // Playtest instrumentation (#29): stamp the request so we can measure how much in-game time
@@ -586,137 +376,6 @@ namespace RimSynapse.Conversations.Patches
                     }
                 });
             }, presetBeat);
-        }
-
-        // ── Pre-staged event conversations (#35) ─────────────────────────
-        // Concrete events don't go stale, so we pre-generate per-pair retellings of a pawn's recent
-        // event and fire one at random per conversation start (unique per pair+event). Weather/current
-        // conditions are never pre-staged; only lived events.
-        private const int EventStageRecentTicks = 180000; // ~3 in-game days
-        private const int EventStagePartnersPerOwner = 2;
-        private const int EventStagePerPass = 2;
-
-        /// <summary>Called from the world component's rare tick: pre-stage a few retellings of colonists'
-        /// recent events to partners who don't have that event staged yet.</summary>
-        public static void TryStageEventConversations(SynapseConversationsWorldComponent worldComp)
-        {
-            if (worldComp == null || !worldComp.CanStageMoreEvents) return;
-            if (!(RimSynapseConversationsMod.Settings?.preStageEventConversations ?? true)) return;
-            if (ShouldShedForLoad()) return; // pre-staging adds background load — hold off while behind (#38)
-            var map = Find.CurrentMap;
-            if (map == null) return;
-
-            long nowAbs = Find.TickManager.TicksAbs;
-            int staged = 0;
-            // Retellings can involve the colony's captives and slaves too, not just colonists (#41) — a
-            // prisoner recounting their capture to a warden, say. Built from cached colony lists (bounded);
-            // this is the capped background pre-gen path, not the per-tick scan.
-            var participants = new List<Pawn>(map.mapPawns.FreeColonistsAndPrisonersSpawned);
-            participants.AddRange(map.mapPawns.SlavesOfColonySpawned);
-            foreach (var owner in participants)
-            {
-                if (staged >= EventStagePerPass || !worldComp.CanStageMoreEvents) break;
-                var core = owner.TryGetComp<SynapseCorePawnComp>();
-                if (core?.memories == null) continue;
-
-                var mem = core.memories
-                    .Where(m => m != null && m.memoryType == "EventReflection" && !string.IsNullOrEmpty(m.summary))
-                    .Where(m => m.isLongTerm || nowAbs - m.absTick <= EventStageRecentTicks)
-                    .OrderByDescending(m => m.absTick)
-                    .FirstOrDefault();
-                if (mem == null) continue;
-                string eventKey = mem.memId ?? mem.summary;
-
-                int partnersStaged = 0;
-                foreach (var partner in participants)
-                {
-                    if (partner == owner || partner.Dead) continue;
-                    if (partnersStaged >= EventStagePartnersPerOwner || staged >= EventStagePerPass || !worldComp.CanStageMoreEvents) break;
-                    if (worldComp.PairHasStagedEvent(owner.ThingID, partner.ThingID, eventKey)) continue;
-                    QueueEventRetelling(worldComp, owner, partner, mem.summary, eventKey);
-                    partnersStaged++;
-                    staged++;
-                }
-            }
-        }
-
-        /// <summary>Generate (one LLM call) a short retelling where <paramref name="owner"/> recounts an
-        /// event to <paramref name="partner"/>, and store it as a pre-staged event conversation.</summary>
-        private static void QueueEventRetelling(SynapseConversationsWorldComponent worldComp, Pawn owner, Pawn partner, string eventSummary, string eventKey)
-        {
-            // A retelling is an event beat with InitiatorTells framing — owner lived it, partner is hearing
-            // it fresh — routed through the same thin system+user prompt and code-computed offsets as live
-            // generation (Conversations#46). System+user, NOT a lone system message: a local model returns
-            // an empty acknowledgement to a system-only chat instead of generating.
-            var beat = new Generation.ConversationBeat
-            {
-                subject = eventSummary,
-                initiatorStance = "recounting how it actually went",
-                recipientStance = "hearing it for the first time and reacting",
-                tone = Generation.BeatTone.Casual,
-                framing = Generation.BeatFraming.InitiatorTells,
-                isDeep = false,
-                topicKey = "event:" + eventKey
-            };
-            var prompt = Generation.ThinDialoguePrompt.Build(owner, partner, beat, null);
-
-            SynapseClient.PromptAsync(
-                RimSynapseConversationsMod.ModHandle,
-                prompt.system,
-                prompt.user,
-                result =>
-                {
-                    if (!result.success || string.IsNullOrEmpty(result.content)) return;
-                    var lines = ParseLinesLenient(result.content)?
-                        .Where(l => !string.IsNullOrWhiteSpace(l))
-                        .Select(l => CleanLine(l, owner, partner))
-                        .Where(l => !string.IsNullOrWhiteSpace(l))
-                        .ToList();
-                    if (lines == null || lines.Count < 2) return;
-
-                    var off = Generation.SocialOffsetCalculator.Compute(owner, partner, beat);
-                    SynapseGameComponent.Enqueue(() =>
-                    {
-                        worldComp.AddEventPreGen(new PreGeneratedConversation
-                        {
-                            initiatorId = owner.ThingID,
-                            recipientId = partner.ThingID,
-                            initiatorStatement = lines[0],
-                            recipientResponse = lines[1],
-                            eventKey = eventKey,
-                            eventSummary = eventSummary,
-                            trustOffset = off.trust,
-                            familiarityOffset = off.familiarity,
-                            affinityOffset = off.affinity,
-                            generatedAtTick = Find.TickManager.TicksGame,
-                            generatedAtAbsTick = Find.TickManager.TicksAbs
-                        });
-                    });
-                },
-                new ChatOptions { priority = 6, requestName = "Event retelling (pre-stage)", targetName = $"{owner.Name.ToStringShort} -> {partner.Name.ToStringShort}" });
-        }
-
-        /// <summary>Apply a pre-staged event conversation instantly (like the pool path), consuming it.</summary>
-        private static void ApplyStagedEventConversation(Pawn initiator, Pawn recipient, PawnConversation conversation, PreGeneratedConversation staged, int currentTick)
-        {
-            conversation.messages.Add(new SynapseConversationMessage(staged.initiatorId, staged.initiatorStatement, currentTick));
-            conversation.messages.Add(new SynapseConversationMessage(staged.recipientId, staged.recipientResponse, currentTick));
-            conversation.lastTick = currentTick;
-            while (conversation.messages.Count > 50) conversation.messages.RemoveAt(0);
-
-            if (Find.TickManager.CurTimeSpeed == TimeSpeed.Normal)
-            {
-                UI.SpeechBubbleManager.AddBubble(initiator, recipient, staged.initiatorStatement, 0, 4.5f);
-                UI.SpeechBubbleManager.AddBubble(recipient, initiator, staged.recipientResponse, 270, 4.5f);
-            }
-
-            ApplyPsychologyOffsets(initiator, recipient, staged.trustOffset, staged.familiarityOffset);
-            ApplyVanillaAffinityThought(initiator, recipient, staged.affinityOffset);
-            PropagateContextMemories(initiator, recipient, "Event", staged.initiatorStatement);
-            conversation.PushRecentTopic("event:" + staged.eventKey);
-
-            float dist = (initiator.Spawned && recipient.Spawned) ? initiator.Position.DistanceTo(recipient.Position) : -1f;
-            ConversationMetrics.Add(initiator, recipient, "event:" + staged.eventKey, false, dist, dist, 0, 0, "event-pool");
         }
 
         internal static void ApplyPsychologyOffsets(Pawn initiator, Pawn recipient, float trustOffset, float familiarityOffset)
@@ -905,31 +564,5 @@ namespace RimSynapse.Conversations.Patches
             return content;
         }
 
-        public static void TriggerEnvironmentalLlmDialogue(Pawn initiator, Pawn recipient, string type, string description)
-        {
-            var worldComp = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
-            if (worldComp == null) return;
-
-            string idA = initiator.ThingID;
-            string idB = recipient.ThingID;
-            PawnConversation conversation = worldComp.pawnConversations.FirstOrDefault(c =>
-                (c.pawnAId == idA && c.pawnBId == idB) || (c.pawnAId == idB && c.pawnBId == idA));
-
-            int currentTick = Find.TickManager.TicksGame;
-            if (conversation == null)
-            {
-                conversation = new PawnConversation(idA, idB, currentTick);
-                worldComp.pawnConversations.Add(conversation);
-            }
-
-            // Environmental comments now ride the same thin, voice-led beat path as ordinary chit-chat
-            // (Conversations#44). The old bespoke two-call prompt front-loaded each pawn's llmTraits taxonomy
-            // ("Jungian Type: INTJ", "Temperament: Melancholic") and numeric mood/opinion, which pushed the
-            // small model into flat, clinical status-report lines. The concrete environmental subject is
-            // handed in as a preset beat; the model only has to phrase it in the pawn's voice.
-            var beat = Generation.ConversationBeatResolver.EnvironmentalBeat(initiator, recipient, type, description);
-            GenerateConversationAndApply(initiator, recipient, InteractionDefOf.Chitchat, conversation,
-                Find.TickManager.CurTimeSpeed != TimeSpeed.Normal, beat);
-        }
     }
 }

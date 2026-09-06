@@ -50,7 +50,7 @@ namespace RimSynapse.Conversations.UI
             if (wc != null && recipient != null)
             {
                 RimSynapse.SynapseLogger.Info("conversations",
-                    $"Pool for pair: {wc.PoolCountForPair(p.ThingID, recipient.ThingID)}/{SynapseConversationsWorldComponent.MaxPreGenPerPair}; pooled topics: {string.Join(", ", wc.PoolTopicsForPair(p.ThingID, recipient.ThingID))}");
+                    $"Point pool: {wc.PointPreGenCount}/{SynapseConversationsWorldComponent.MaxPointPreGensTotal} pooled, {wc.PooledPoints().Count(c => c.initiatorId == p.ThingID)} with {p.LabelShort} as speaker; pending {wc.PendingPointGenCount}");
             }
         }
 
@@ -246,27 +246,6 @@ namespace RimSynapse.Conversations.UI
                 $"[#52] Spawned test raider {raider.LabelShort} ({raider.Faction?.Name}, hostile={raider.Faction?.HostileTo(Faction.OfPlayer)}) at {cell}. Use 'Force outsider bark' on them.");
         }
 
-        /// <summary>Exercise the load-adaptive shed path (Conversations#38) headlessly: run a shed conversation
-        /// for this pawn and the nearest colonist — no LLM call — and log the offsets applied plus the live
-        /// backpressure readings, so we can confirm relationships still move and see whether real load would
-        /// currently trip the shed gate.</summary>
-        [DebugAction("RimSynapse", "Conversations: Force shed exchange (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
-        public static void ForceShedExchange(Pawn p)
-        {
-            if (p == null) return;
-            Pawn other = p.Map?.mapPawns?.FreeColonists?
-                .Where(o => o != p && o.RaceProps.Humanlike && o.Spawned)
-                .OrderBy(o => o.Position.DistanceToSquared(p.Position))
-                .FirstOrDefault();
-            if (other == null)
-            {
-                RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] No conversation partner near {p.LabelShort}.");
-                return;
-            }
-            string summary = Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.DebugForceShed(p, other, false);
-            RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] {summary}");
-        }
-
         /// <summary>Log the most recent exchange this pawn is part of, speaker by speaker — the headless way
         /// to eyeball generated dialogue quality (Conversations#46 validation).</summary>
         [DebugAction("RimSynapse", "Conversations: Dump last exchange (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
@@ -303,19 +282,6 @@ namespace RimSynapse.Conversations.UI
         }
 
         /// <summary>
-        /// 0.8 perf validation: force the environmental-trigger scan (darkness/freezer) for every
-        /// colonist now, bypassing the per-pawn hash-interval gate, and log how many were evaluated.
-        /// </summary>
-        [DebugAction("RimSynapse", "Conversations: Force environmental scan (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
-        public static void ForceEnvironmentalScan()
-        {
-            var mc = Find.CurrentMap?.GetComponent<SynapseConversationsMapComponent>();
-            if (mc == null) { RimSynapse.SynapseLogger.Info("conversations", "[RimSynapse] No conversations map component."); return; }
-            int n = mc.ForceEnvironmentalScan();
-            RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] Forced environmental scan evaluated {n} participant(s) (colonists + prisoners + slaves).");
-        }
-
-        /// <summary>
         /// Exercises the read-only agent tools (Conversations#10) headlessly: runs get_chat_history
         /// and get_colonist_interests on the clicked pawn and logs the JSON each returns.
         /// </summary>
@@ -329,20 +295,6 @@ namespace RimSynapse.Conversations.UI
                 "get_chat_history      : " + SynapseToolRegistry.ExecuteTool("get_chat_history", args, allowMutating: false));
             RimSynapse.SynapseLogger.Info("conversations",
                 "get_colonist_interests: " + SynapseToolRegistry.ExecuteTool("get_colonist_interests", args, allowMutating: false));
-        }
-
-        [DebugAction("RimSynapse", "Conversations: Dump pre-gen pool (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
-        public static void DumpPreGenPool()
-        {
-            var wc = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
-            if (wc == null) { RimSynapse.SynapseLogger.Info("conversations", "[RimSynapse] No conversations world component."); return; }
-
-            RimSynapse.SynapseLogger.Info("conversations", $"--- Pre-gen pool: {wc.preGenPool.Count}/{SynapseConversationsWorldComponent.MaxPreGenTotal} ---");
-            foreach (var e in wc.preGenPool)
-            {
-                RimSynapse.SynapseLogger.Info("conversations",
-                    $"  [{e.topicDefName}] {SynapseConversationsWorldComponent.PawnFromId(e.initiatorId)?.LabelShort ?? e.initiatorId} -> {SynapseConversationsWorldComponent.PawnFromId(e.recipientId)?.LabelShort ?? e.recipientId}: \"{e.initiatorStatement}\"");
-            }
         }
 
         [DebugAction("RimSynapse", "Conversations: chit-chat->death memory linkage (Core #80)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]

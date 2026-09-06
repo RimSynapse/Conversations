@@ -82,7 +82,7 @@ Chit-chat vs deep talk survive only as a **register** on the point. It is derive
 
 ## The trigger
 
-A **psychology / proximity scan** over conversant pawns replaces the vanilla social-interaction hook. A pawn talks when: their agenda is non-empty, a valid listener is in earshot, they are in a talking mood, and the pair is off cooldown. If a pooled conversation exists for the match it fires; if not, the pair stays quiet and pregeneration catches up. The warden path (prisoners) and outsider barks keep their own triggers.
+A **psychology / proximity scan** over conversant pawns replaces the vanilla social-interaction hook. Every few seconds each map serves at most one pooled point conversation whose speaker and listener are within 8 cells, both in a **talking mood** (awake, upright, not drafted or broken, able to speak, not mid-combat or in an uninterruptible job — mood itself is *not* a gate, a low mood is exactly when a deep-talk point wants out), neither mid-exchange, and off the pair cooldown (the settings slider). Serving is a cache hit: no LLM call at interaction time. A miss stays silent and nudges pregeneration for one pawn, so the pool converges on who is actually near whom. The register comes from the point, never from a vanilla InteractionDef. The old environmental driver (darkness / freezer remarks) and the personality "initiation / response chance" gates went with the vanilla hook. The warden path (prisoners) and outsider barks keep their own triggers.
 
 ## Debug actions
 
@@ -96,14 +96,16 @@ All under the **RimSynapse** debug category; the pawn-targeted ones work headles
 | Conversations: Seed colony rumors | Rule 6 on any pawn, from Core's event ledger, with the once-per-visit flag cleared. |
 | Conversations: Pregenerate top point | Matches the pawn's strongest point to a listener, logs the built beat, and queues one background generation (result lands async). |
 | Conversations: Dump point pool | Every pooled point conversation with its lines, plus how many are in flight. |
-| Force serve / propagate *(steps 4–5)* | Fire a point to the nearest valid listener and show the derived rumor. |
+| Conversations: Force serve pooled point | Serves the first pooled conversation the pawn speaks in, bypassing range / mood / cooldown: the lines play, offsets apply, the point is consumed for that listener. |
+| Conversations: Dump trigger gates | Why the trigger would or wouldn't fire for the pawn right now: the talking-mood gate, then the pair gate for each pooled entry. |
+| Force propagate *(step 5)* | Serve a point and show the listener's derived rumor. |
 
 ## Build order
 
 1. **Data model** — point, agenda comp, injection, scribe. *Landed.*
 2. **Formation** — rules 1–6 and 8 on a cadence; `ConversationLinkDef` + authored bank. *Built; in-game validation pending.*
 3. **Pregeneration** — point → beat → pooled conversation. *Built; in-game validation pending.*
-4. **Trigger swap** — the psychology / proximity scan replaces the vanilla hook.
+4. **Trigger swap** — the psychology / proximity scan replaces the vanilla hook. *Built; in-game validation pending.* The pair-keyed pre-seed pool and event pre-staging folded into point-driven pregeneration here; live generation survives only as a debug force.
 5. **Propagation** — rule 7, the rumor mill.
 6. **Cliques** — exchange counts per pair (follow-on).
 

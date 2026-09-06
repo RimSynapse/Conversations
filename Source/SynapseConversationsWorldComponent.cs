@@ -16,7 +16,8 @@ namespace RimSynapse.Conversations
         // This component now owns pawn-to-pawn dialogue state only.
         public List<PawnConversation> pawnConversations = new List<PawnConversation>();
 
-        // ── Pre-seed pool (Conversations#28) ─────────────────────────────
+        // ── Pre-generation pool (#60): POINT conversations only, keyed (speaker, listener, pointId). The
+        // pair-keyed pre-seed pool (#28) and event pre-staging (#35) folded into point-driven pregeneration.
         public List<PreGeneratedConversation> preGenPool = new List<PreGeneratedConversation>();
 
         // ── Outsider flavor bank (#52 layer 3) ───────────────────────────
@@ -47,8 +48,6 @@ namespace RimSynapse.Conversations
             outsiderFlavor.Add(new OutsiderFlavorBank { key = key, lines = lines });
         }
 
-        public const int MaxPreGenPerPair = 3;
-        public const int MaxPreGenTotal = 40;
         private const int PreGenTtlTicks = 60000;      // 1 in-game day for chit-chat
         private const int PreGenDeepTtlTicks = 10000;  // ~4 hours for deep talk (leans on volatile memory)
         private const int PoolMaintainInterval = 2000; // rare-tick prune + top-up cadence
@@ -84,10 +83,6 @@ namespace RimSynapse.Conversations
             // save stays lean and the transcript is bounded — instead of a pair's record living forever
             // unless they happen to talk again.
             PruneConversationHistory(tick);
-            // Top-up is owned by the generator (patch class); it queues low-priority fills on idle cycles.
-            Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.TryTopUpPreGenPool(this);
-            // Pre-stage retellings of recent events for pairs that don't have them yet (#35).
-            Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.TryStageEventConversations(this);
         }
 
         /// <summary>Debug/validation: prune now and report the before/after counts (#40 / #59).</summary>
@@ -117,22 +112,23 @@ namespace RimSynapse.Conversations
             }
         }
 
-        private static string PairKey(string a, string b)
-            => string.CompareOrdinal(a, b) < 0 ? a + "_" + b : b + "_" + a;
-
-        public int PoolCountForPair(string idA, string idB)
+        /// <summary>The pair's conversation record, restarted when the last exchange is older than the
+        /// retention window (#40) — the thread is stale, a new one begins.</summary>
+        public static PawnConversation GetOrStartConversation(SynapseConversationsWorldComponent wc, Pawn a, Pawn b, int nowTick)
         {
-            string k = PairKey(idA, idB);
-            int n = 0;
-            foreach (var p in preGenPool)
-            {
-                if (!string.IsNullOrEmpty(p.pointId)) continue; // point pre-gens have their own bound (#60)
-                if (PairKey(p.initiatorId, p.recipientId) == k) n++;
-            }
-            return n;
+            string idA = a.ThingID, idB = b.ThingID;
+            var conv = wc.pawnConversations.FirstOrDefault(c => (c.pawnAId == idA && c.pawnBId == idB) || (c.pawnAId == idB && c.pawnBId == idA));
+            float hours = RimSynapseConversationsMod.Settings?.conversationHistoryHours ?? 24f;
+            int maxAge = (int)(hours * 2500f);
+            if (conv != null && nowTick - conv.lastTick <= maxAge) return conv;
+            if (conv != null) wc.pawnConversations.Remove(conv);
+            conv = new PawnConversation(idA, idB, nowTick);
+            wc.pawnConversations.Add(conv);
+            return conv;
         }
 
-        public bool PoolAtTotalCap => preGenPool.Count >= MaxPreGenTotal;
+        private static string PairKey(string a, string b)
+            => string.CompareOrdinal(a, b) < 0 ? a + "_" + b : b + "_" + a;
 
         /// <summary>Topic defNames already pooled for this pair — fed into topic selection so the
         /// pooled options stay varied.</summary>
@@ -144,80 +140,6 @@ namespace RimSynapse.Conversations
                 if (PairKey(p.initiatorId, p.recipientId) == k && !string.IsNullOrEmpty(p.topicDefName))
                     set.Add(p.topicDefName);
             return set;
-        }
-
-        public bool PairNeedsFill(string idA, string idB)
-            => !PoolAtTotalCap && PoolCountForPair(idA, idB) < MaxPreGenPerPair;
-
-        public void AddToPool(PreGeneratedConversation conv)
-        {
-            if (conv == null || string.IsNullOrEmpty(conv.initiatorId) || string.IsNullOrEmpty(conv.recipientId)) return;
-            if (PoolAtTotalCap) return;
-            if (PoolCountForPair(conv.initiatorId, conv.recipientId) >= MaxPreGenPerPair) return;
-            preGenPool.Add(conv);
-        }
-
-        /// <summary>Take a fresh pre-gen for this pair, discarding any expired/stale entries encountered.</summary>
-        public PreGeneratedConversation PopFreshPreGen(Pawn a, Pawn b)
-        {
-            if (a == null || b == null) return null;
-            string k = PairKey(a.ThingID, b.ThingID);
-            long nowAbs = Find.TickManager.TicksAbs;
-            int nowTick = Find.TickManager.TicksGame;
-            for (int i = preGenPool.Count - 1; i >= 0; i--)
-            {
-                var p = preGenPool[i];
-                if (!string.IsNullOrEmpty(p.eventKey)) continue;   // event pre-gens fire only via the event path (#35)
-                if (!string.IsNullOrEmpty(p.pointId)) continue;    // point pre-gens fire only via the agenda serve path (#60)
-                if (PairKey(p.initiatorId, p.recipientId) != k) continue;
-                if (IsExpiredOrStale(p, a, b, nowAbs, nowTick)) { preGenPool.RemoveAt(i); continue; }
-                preGenPool.RemoveAt(i);
-                return p;
-            }
-            return null;
-        }
-
-        // ── Event pre-staging (#35) ──────────────────────────────────────
-        // Concrete events don't go stale, so we pre-stage per-pair retellings of recent episodes and
-        // fire one at random per conversation start. Kept in the same pool (TTL/prune apply) but under a
-        // separate total bound and popped only via the event path.
-        public const int MaxEventPreGensTotal = 24;
-
-        public int EventPreGenCount => preGenPool.Count(p => !string.IsNullOrEmpty(p.eventKey));
-        public bool CanStageMoreEvents => EventPreGenCount < MaxEventPreGensTotal;
-
-        /// <summary>A pair tells any given event only once — has this pair already got it staged?</summary>
-        public bool PairHasStagedEvent(string idA, string idB, string eventKey)
-        {
-            if (string.IsNullOrEmpty(eventKey)) return false;
-            string k = PairKey(idA, idB);
-            foreach (var p in preGenPool)
-                if (p.eventKey == eventKey && PairKey(p.initiatorId, p.recipientId) == k) return true;
-            return false;
-        }
-
-        public void AddEventPreGen(PreGeneratedConversation conv)
-        {
-            if (conv == null || string.IsNullOrEmpty(conv.eventKey)) return;
-            if (!CanStageMoreEvents) return;
-            if (PairHasStagedEvent(conv.initiatorId, conv.recipientId, conv.eventKey)) return;
-            preGenPool.Add(conv);
-        }
-
-        /// <summary>Take one staged event retelling for this pair (any event), consuming it.</summary>
-        public PreGeneratedConversation PopEventPreGenForPair(Pawn a, Pawn b)
-        {
-            if (a == null || b == null) return null;
-            string k = PairKey(a.ThingID, b.ThingID);
-            for (int i = preGenPool.Count - 1; i >= 0; i--)
-            {
-                var p = preGenPool[i];
-                if (string.IsNullOrEmpty(p.eventKey)) continue;
-                if (PairKey(p.initiatorId, p.recipientId) != k) continue;
-                preGenPool.RemoveAt(i);
-                return p;
-            }
-            return null;
         }
 
         // ── Point-keyed pre-gens (#60 step 3) ────────────────────────────
@@ -295,15 +217,15 @@ namespace RimSynapse.Conversations
                 var p = preGenPool[i];
                 Pawn a = PawnFromId(p.initiatorId);
                 Pawn b = PawnFromId(p.recipientId);
-                if (a == null || b == null || IsExpiredOrStale(p, a, b, nowAbs, nowTick)
-                    || (!string.IsNullOrEmpty(p.pointId) && PointIsGone(p, a)))
+                // Legacy (pre-#60) pair/event entries have no pointId: nothing serves them any more, drop on sight.
+                if (a == null || b == null || string.IsNullOrEmpty(p.pointId) || IsExpiredOrStale(p, a, b, nowAbs, nowTick) || PointIsGone(p, a))
                     preGenPool.RemoveAt(i);
             }
         }
 
         private static bool IsExpiredOrStale(PreGeneratedConversation p, Pawn a, Pawn b, long nowAbs, int nowTick)
         {
-            int ttl = (p.isDeep || TopicIsDeep(p.topicDefName)) ? PreGenDeepTtlTicks : PreGenTtlTicks;
+            int ttl = p.isDeep ? PreGenDeepTtlTicks : PreGenTtlTicks;
             if (nowTick - p.generatedAtTick > ttl) return true;
             // Significant-event invalidation: either participant gained a Death/Grief/Betrayal/TraitShift
             // memory after this pre-gen was written.
@@ -327,9 +249,6 @@ namespace RimSynapse.Conversations
             return false;
         }
 
-        // ChatTopicDef is retired; the pool key is the beat's topicKey, and "burden" is the resolver's only
-        // always-deep register. Folds into TalkingPoint.register when the pool is re-keyed per point (#60).
-        private static bool TopicIsDeep(string topicDefName) => topicDefName == "burden";
 
         public static Pawn PawnFromId(string thingId)
         {

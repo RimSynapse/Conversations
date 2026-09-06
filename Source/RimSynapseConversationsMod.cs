@@ -43,24 +43,15 @@ namespace RimSynapse.Conversations
             );
             listingStandard.Gap(12f);
 
-            listingStandard.CheckboxLabeled(
-                "Experimental: Pre-seed conversations (may serve stale context)",
-                ref Settings.experimentalPreSeeding,
-                "EXPERIMENTAL. Pre-generates conversations in the background and serves them instantly. " +
-                "Off by default: pre-seeded lines can reference stale context (weather, a pawn who's been " +
-                "indoors all day). With it off, every conversation is generated live."
-            );
-            listingStandard.Gap(12f);
-
             Settings.dialogueCooldownHours = listingStandard.SliderLabeled(
                 Settings.dialogueCooldownHours <= 0f
-                    ? "AI Conversation Cooldown: Off (every vanilla interaction)"
-                    : $"AI Conversation Cooldown: {Settings.dialogueCooldownHours:F1} in-game hours",
+                    ? "Conversation Cooldown: Off (a pair may talk whenever a point is ready)"
+                    : $"Conversation Cooldown: {Settings.dialogueCooldownHours:F1} in-game hours",
                 Settings.dialogueCooldownHours, 0f, 12f,
                 0.5f,
-                "Minimum in-game hours before the same pair of pawns will generate another AI conversation. " +
-                "Vanilla social interactions fire constantly; raising this reduces chatter and prevents short-term " +
-                "social memories from piling up faster than they decay. Set to 0 for legacy behavior (a dialogue on every interaction)."
+                "Minimum in-game hours before the same pair of pawns talks again. Pawns talk when something on " +
+                "their agenda is ready for a listener in range; raising this reduces chatter and keeps short-term " +
+                "social memories from piling up faster than they decay. 0 = no throttle."
             );
             listingStandard.Gap(12f);
 

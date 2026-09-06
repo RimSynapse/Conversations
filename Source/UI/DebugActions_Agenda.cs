@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Verse;
 using LudeonTK;
@@ -140,6 +141,58 @@ namespace RimSynapse.Conversations.UI
                     foreach (var l in c.lines)
                         RimSynapse.SynapseLogger.Info(Cat, $"      {(SynapseConversationsWorldComponent.PawnFromId(l.speakerId)?.LabelShort ?? l.speakerId)}: {l.text}");
             }
+        }
+
+        /// <summary>Serve the first pooled point conversation this pawn is the speaker of, bypassing the
+        /// range / mood / cooldown gates (the listener only has to be spawned). Step-4 proof-of-function:
+        /// the pooled lines play, offsets apply, the point is consumed for that listener (#60 §8).</summary>
+        [DebugAction("RimSynapse", "Conversations: Force serve pooled point (Log)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceServePooledPoint(Pawn p)
+        {
+            if (p == null || p.Map == null) return;
+            var wc = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            var mc = p.Map.GetComponent<SynapseConversationsMapComponent>();
+            var agenda = p.TryGetComp<SynapseConversationAgendaComp>();
+            if (wc == null || agenda == null) return;
+
+            foreach (var c in wc.PooledPoints().Where(x => x.initiatorId == p.ThingID).ToList())
+            {
+                var listener = SynapseConversationsWorldComponent.PawnFromId(c.recipientId);
+                if (listener == null || !listener.Spawned) continue;
+                var point = agenda.Find(c.pointId);
+                var conv = wc.PopPooledPoint(c.initiatorId, c.recipientId, c.pointId);
+                if (conv == null) continue;
+                RimSynapse.SynapseLogger.Info(Cat, $"[RimSynapse] Force-serving {p.LabelShort} -> {listener.LabelShort}: {(point != null ? point.ToString() : "(point already gone — serving orphan lines)")}");
+                RimSynapse.Conversations.Generation.AgendaTrigger.Serve(p, listener, point, agenda, conv, wc, mc, Find.TickManager.TicksGame);
+                foreach (var l in conv.lines ?? new List<PooledLine>())
+                    RimSynapse.SynapseLogger.Info(Cat, $"      {(SynapseConversationsWorldComponent.PawnFromId(l.speakerId)?.LabelShort ?? l.speakerId)}: {l.text}");
+                RimSynapse.SynapseLogger.Info(Cat, $"  told={point?.Told(listener.ThingID)} fullyTold={point?.FullyTold} agenda now {agenda.Count}");
+                return;
+            }
+            RimSynapse.SynapseLogger.Info(Cat, $"[RimSynapse] Nothing pooled with {p.LabelShort} as speaker — run \"Pregenerate top point\" and wait for the call to land.");
+        }
+
+        /// <summary>Why the trigger would or wouldn't fire for this pawn right now: the talking-mood gate and,
+        /// for each pooled entry they speak in, the pair gate result.</summary>
+        [DebugAction("RimSynapse", "Conversations: Dump trigger gates (Log)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void DumpTriggerGates(Pawn p)
+        {
+            if (p == null || p.Map == null) return;
+            var wc = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            var mc = p.Map.GetComponent<SynapseConversationsMapComponent>();
+            bool mood = RimSynapse.Conversations.Generation.AgendaTrigger.InTalkingMood(p, out string why);
+            RimSynapse.SynapseLogger.Info(Cat, $"--- Trigger gates for {p.LabelShort}: talking mood = {mood}{(why != null ? " (" + why + ")" : "")} ---");
+            if (wc == null) return;
+            int n = 0;
+            foreach (var c in wc.PooledPoints().Where(x => x.initiatorId == p.ThingID))
+            {
+                n++;
+                var listener = SynapseConversationsWorldComponent.PawnFromId(c.recipientId);
+                if (listener == null) { RimSynapse.SynapseLogger.Info(Cat, $"  -> {c.recipientId}: listener not found"); continue; }
+                bool ok = RimSynapse.Conversations.Generation.AgendaTrigger.PairEligible(p, listener, Find.TickManager.TicksGame, null, mc, out string pw);
+                RimSynapse.SynapseLogger.Info(Cat, $"  -> {listener.LabelShort} [{c.pointId}]: {(ok ? "WOULD FIRE (cooldown not checked here)" : "blocked: " + pw)}");
+            }
+            if (n == 0) RimSynapse.SynapseLogger.Info(Cat, "  (no pooled conversations with this pawn as speaker)");
         }
     }
 }

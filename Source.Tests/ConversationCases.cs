@@ -68,25 +68,6 @@ namespace RimSynapse.Conversations.Tests
                 return "today / long-term / grief tiers all resolved";
             });
 
-            // Pre-seed pool: per-pair cap and topic variety.
-            yield return new SynapseTestCase("Conversations_PreGenPoolCapsAndVaries", () =>
-            {
-                var wc = new SynapseConversationsWorldComponent(Find.World);
-                for (int i = 0; i < 5; i++)
-                {
-                    wc.AddToPool(new PreGeneratedConversation
-                    {
-                        initiatorId = "P1", recipientId = "P2", topicDefName = "Topic_" + i,
-                        initiatorStatement = "hi " + i, recipientResponse = "hello " + i
-                    });
-                }
-                Assert.Equal(SynapseConversationsWorldComponent.MaxPreGenPerPair, wc.PoolCountForPair("P1", "P2"),
-                    "a single pair cannot exceed the per-pair cap");
-                Assert.False(wc.PairNeedsFill("P1", "P2"), "a full pair reports no need to fill");
-                Assert.Equal(SynapseConversationsWorldComponent.MaxPreGenPerPair, wc.PoolTopicsForPair("P1", "P2").Count,
-                    "pooled topics are distinct (selection diversifies them)");
-                return $"pair pool={wc.PoolCountForPair("P1", "P2")}, distinct topics={wc.PoolTopicsForPair("P1", "P2").Count}";
-            });
 
             // Read-only agent tools (Conversations#10): get_chat_history filters to the named colonist,
             // is newest-first, honors maxMessages; get_colonist_interests returns valid JSON; unknown
@@ -225,45 +206,6 @@ namespace RimSynapse.Conversations.Tests
                 return $"deep=\"{deep.summary}\", chit=\"{chit.summary}\", avoid excluded";
             });
 
-            // Pre-staged event conversations (#35): stage → unique-per-pair → event pop consumes →
-            // generic pop ignores event pre-gens.
-            yield return new SynapseTestCase("Conversations_EventPreStaging", () =>
-            {
-                Map map = Find.CurrentMap ?? Find.Maps.FirstOrDefault();
-                Assert.True(map != null, "no map available");
-                var cols = map.mapPawns.FreeColonists.ToList();
-                Assert.True(cols.Count >= 2, "need two colonists");
-                Pawn a = cols[0], b = cols[1];
-
-                var wc = new SynapseConversationsWorldComponent(Find.World);
-                wc.AddEventPreGen(new PreGeneratedConversation
-                {
-                    initiatorId = a.ThingID, recipientId = b.ThingID,
-                    initiatorStatement = "a crow mauled me", recipientResponse = "brutal — you okay?",
-                    eventKey = "ev1", eventSummary = "clawed by a crow"
-                });
-                Assert.True(wc.PairHasStagedEvent(a.ThingID, b.ThingID, "ev1"), "pair has the event staged");
-                Assert.True(wc.PairHasStagedEvent(b.ThingID, a.ThingID, "ev1"), "staging is symmetric per pair");
-                Assert.Equal(1, wc.EventPreGenCount, "one event pre-gen staged");
-
-                // duplicate (same pair + event) is not staged twice
-                wc.AddEventPreGen(new PreGeneratedConversation
-                {
-                    initiatorId = a.ThingID, recipientId = b.ThingID,
-                    initiatorStatement = "x", recipientResponse = "y", eventKey = "ev1", eventSummary = "s"
-                });
-                Assert.Equal(1, wc.EventPreGenCount, "duplicate pair+event not staged twice");
-
-                // the generic pool pop must NOT grab an event-anchored pre-gen
-                Assert.True(wc.PopFreshPreGen(a, b) == null, "generic pop ignores event pre-gens");
-
-                // event pop returns it and consumes it (unique per pair)
-                var got = wc.PopEventPreGenForPair(a, b);
-                Assert.True(got != null && got.eventKey == "ev1", "event pop returns the staged retelling");
-                Assert.Equal(0, wc.EventPreGenCount, "event pre-gen consumed on pop");
-                Assert.True(wc.PopEventPreGenForPair(a, b) == null, "a told event is not repeated to the same pair");
-                return "stage + unique + event-pop-consumes + generic-pop-ignores ok";
-            });
         }
     }
 }
