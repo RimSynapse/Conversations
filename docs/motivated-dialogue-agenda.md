@@ -52,6 +52,24 @@ reading Core memories + Psychology:
   humanised) → a low-salience `ChitChat` point ("been fixing the cooler all day").
 - **Bond shift** — a notable change in Psychology `socialNetwork` (trust/familiarity) → a point about
   a third pawn ("worried about X"), audience-restricted so they don't say it *to* X.
+- **Link** (outsider pairs — folds #52 + #53) — a pawn with **no psychology background** (a visitor,
+  trader or guest with no memories) has an empty agenda, and a resident has no point *about* them, so
+  outsider pairs would fall silent. Instead: seed a low-salience `ChitChat` point from an authored
+  **`ConversationLinkDef`** bank keyed by the *role pair and direction* — visitor→resident ("what's new
+  around here", "how long have you lived here"), resident→visitor ("what brings you this way", "how's the
+  road been"), resident→new citizen ("settling in yet", "when did you join up"). Audience is role-scoped.
+  A link is **half generic, half psychology**: the blank pawn's line is authored and costs nothing; the
+  resident's answer is a normal psychology-voiced line with a few **cheap C# facts** injected — tenure
+  (time as colonist), arrival (faction + `ConversationRole`, `RelationshipTone` #53), what's new (the
+  today-tier memories, kept in the scrub), and the place (colony name / age). These are *pair-and-role*
+  reads, not the retired colonist self-describers (room/apparel/food). A recurring guest who *does* have
+  a Psychology profile gets the full treatment; the bank is the fallback for blank pawns, not the rule.
+- **Colony rumor** (outsiders) — visitors arrive **already carrying `Heard` points about the colony**,
+  seeded at arrival by a randomised pick over Core's colony event history
+  (`SynapseCoreWorldComponent.shortTermEvents` / `pawnEventRecords`): "heard you took on someone new",
+  "heard the raid went badly for the pirates". `sourcePawnId` is null (the road told them); audience is
+  residents. This is the rumor mill (§5) applied to outsiders — the same `Heard` provenance, no separate
+  system — and it means the colony's own history becomes what the world says about it.
 
 This **replaces** `ConversationBeatResolver`'s reactive subject-picking. That resolver's per-branch
 logic (event / burden / activity / observation) becomes the **formation rules** above; the point *is*
@@ -144,3 +162,15 @@ can land anytime.
 - **Live-generation fallback** — when no pooled conversation exists at trigger time, generate live at
   low priority, or stay silent and rely on pregeneration? Silent is cheaper and truer to "pregenerated".
 - **Register threshold** — the memory-weight/mood cutoff that sorts a point into DeepTalk vs ChitChat.
+
+### Settled
+- **`subjectMemId`** = Core `WeightedMemory.memId` (stable, back-filled on load). No new id scheme.
+  Synthetic keys use a prefix: `link:<defName>`, `rumor:<eventId>`, `activity:<tick>`.
+- **Link bank format** — a separate `ConversationLinkDef` (keyed by role pair + direction), not a
+  `links` list on `OutsiderChatterDef`: barks and openers have different audiences, and the *pair* is
+  the key, not a single role.
+- **"New citizen"** — a resident whose Core `Recruited` pivotal memory is younger than one quadrum
+  (15 days) is an eligible target for the settling-in links. This is also the natural hook for making
+  recruitment a real conversation (#62).
+- **Colony-rumor source** — Core's world-level event ledger, randomised at the visitor's arrival, capped
+  at 1–2 `Heard` points per visitor so they don't arrive as a newspaper.
