@@ -21,7 +21,6 @@ namespace RimSynapse.Conversations.Patches
         private class LlmConversationResponse
         {
             public List<LlmDialogueLine> dialogue { get; set; }
-            public string text { get; set; }
             public float trustOffset { get; set; }
             public float familiarityOffset { get; set; }
             public float affinityOffset { get; set; }
@@ -33,15 +32,12 @@ namespace RimSynapse.Conversations.Patches
             public string text { get; set; }
         }
 
-        /// <summary>Single-call multi-line exchange (Conversations#31): a whole back-and-forth plus the
-        /// social offsets in ONE LLM round-trip. Lines alternate speakers starting with the initiator;
-        /// the first lands immediately and the rest drip-feed while the pawns stay in range.</summary>
+        /// <summary>Single-call multi-line exchange (Conversations#31): a whole back-and-forth in ONE LLM
+        /// round-trip. Lines only — social offsets are code-computed (#46). The first line lands immediately
+        /// and the rest drip-feed while the pawns stay in range.</summary>
         private class LlmExchangeResponse
         {
             public List<string> lines { get; set; }
-            public float trustOffset { get; set; }
-            public float familiarityOffset { get; set; }
-            public float affinityOffset { get; set; }
         }
 
         private static void TriggerLlmDialogue(Pawn initiator, Pawn recipient, InteractionDef intDef)
@@ -724,31 +720,6 @@ namespace RimSynapse.Conversations.Patches
             ConversationMetrics.Add(initiator, recipient, null, dist, dist, 0, 0, "event-pool");
         }
 
-        // Event-driven topics (#34): how far back a lived event still counts as "recent".
-        private const int EventTopicRecentTicks = 180000; // ~3 in-game days
-
-        /// <summary>The deterministic candidate pick for a recent significant event the pawn actually
-        /// experienced (EventReflection memory, involvement-gated by Core#88), unit-testable without any
-        /// Rand gate. Recent memories only; deep talk takes the weightiest, chit-chat a recent one; honours
-        /// the avoid set so the same ordeal isn't retold back-to-back. Retained for the test suite; live
-        /// beat selection now runs through <see cref="Generation.ConversationBeatResolver"/>.</summary>
-        public static WeightedMemory SelectEventMemoryCandidate(SynapseCorePawnComp core, bool deep, ICollection<string> avoid)
-        {
-            if (core?.memories == null || core.memories.Count == 0) return null;
-
-            long nowAbs = Find.TickManager != null ? Find.TickManager.TicksAbs : 0L;
-            var candidates = core.memories
-                .Where(m => m != null && m.memoryType == "EventReflection" && !string.IsNullOrEmpty(m.summary))
-                .Where(m => m.isLongTerm || nowAbs - m.absTick <= EventTopicRecentTicks)
-                .Where(m => avoid == null || !avoid.Contains("event:" + (m.memId ?? m.summary)))
-                .ToList();
-            if (candidates.Count == 0) return null;
-
-            if (deep)
-                return candidates.OrderByDescending(m => m.salience > 0f ? m.salience : m.weight).First();
-            return candidates.OrderByDescending(m => m.absTick).Take(5).RandomElement();
-        }
-
         internal static void ApplyPsychologyOffsets(Pawn initiator, Pawn recipient, float trustOffset, float familiarityOffset)
         {
             try
@@ -920,54 +891,6 @@ namespace RimSynapse.Conversations.Patches
             return Mathf.Max(1, 8 - noiseCount);
         }
 
-        private static string GetColonyFacilitiesDescription(Map map)
-        {
-            if (map == null) return "None";
-
-            var list = new List<string>();
-            bool hasResearch = false;
-            bool hasStove = false;
-            bool hasCrafting = false;
-            bool hasHospital = false;
-
-            var allBuildings = map.listerBuildings?.allBuildingsColonist;
-            if (allBuildings != null)
-            {
-                foreach (var b in allBuildings)
-                {
-                    if (b?.def?.defName == null) continue;
-                    string defName = b.def.defName.ToLower();
-
-                    if (defName.Contains("research") || defName.Contains("laboratory") || defName.Contains("labbench"))
-                    {
-                        hasResearch = true;
-                    }
-                    else if (defName.Contains("stove") || defName.Contains("cooker"))
-                    {
-                        hasStove = true;
-                    }
-                    else if (defName.Contains("table") || defName.Contains("bench") || defName.Contains("spot"))
-                    {
-                        hasCrafting = true;
-                    }
-
-                    var room = b.Position.GetRoom(map);
-                    if (room?.Role?.defName == "Hospital")
-                    {
-                        hasHospital = true;
-                    }
-                }
-            }
-
-            if (hasResearch) list.Add("Research Lab / Bench");
-            if (hasStove) list.Add("Cooking Stove");
-            if (hasCrafting) list.Add("Crafting/Workshop Tables");
-            if (hasHospital) list.Add("Medical Hospital");
-
-            if (list.Count == 0) return "Basic crashlanded camp with no advanced facilities built yet.";
-            return string.Join(", ", list);
-        }
-
         internal static string ExtractJson(string content)
         {
             if (string.IsNullOrEmpty(content)) return content;
@@ -981,75 +904,6 @@ namespace RimSynapse.Conversations.Patches
             }
             
             return content;
-        }
-
-        private static string GetRecentMemoriesDescription(Pawn pawn, SynapseCorePawnComp coreComp)
-        {
-            if (coreComp == null || coreComp.memories == null || coreComp.memories.Count == 0) 
-                return "No recorded recent history.";
-
-            int currentTick = Find.TickManager.TicksGame;
-            var recent = coreComp.memories
-                .Where(m => (currentTick - m.gameTick) < 120000 && !string.IsNullOrEmpty(m.summary))
-                .Select(m => m.summary)
-                .Take(5)
-                .ToList();
-
-            if (recent.Count == 0) 
-                return "No recorded recent history.";
-
-            return string.Join("; ", recent);
-        }
-
-        private static string GetLyingOrDelusionalContext(Pawn pawn, string actualWork)
-        {
-            float mood = pawn.needs?.mood?.CurLevelPercentage ?? 0.5f;
-            float lieChance = 0.05f; // 5% base chance
-
-            // Increase chance if mood is low (mentally unstable/stressed)
-            if (mood < 0.35f) lieChance += 0.25f; // +25%
-            else if (mood < 0.50f) lieChance += 0.10f; // +10%
-
-            // Increase chance based on traits
-            if (pawn.story?.traits != null)
-            {
-                foreach (var trait in pawn.story.traits.allTraits)
-                {
-                    string traitLabel = trait.Label.ToLower();
-                    if (traitLabel.Contains("liar") || traitLabel.Contains("sociopath") || traitLabel.Contains("psychopath"))
-                    {
-                        lieChance += 0.40f;
-                    }
-                    else if (traitLabel.Contains("greedy") || traitLabel.Contains("jealous") || traitLabel.Contains("sloth"))
-                    {
-                        lieChance += 0.15f;
-                    }
-                }
-            }
-
-            // RNG check
-            int seed = pawn.thingIDNumber ^ Find.TickManager.TicksGame;
-            var rand = new System.Random(seed);
-            if (rand.NextDouble() < lieChance)
-            {
-                // Generate a delusional alternative explanation
-                if (actualWork.Contains("sow") || actualWork.Contains("harvest") || actualWork.Contains("farm") || actualWork.Contains("grow"))
-                {
-                    return "TRUE (This pawn is stressed/unstable and is lying or imagining their life is easier. They will lie and claim they spent their time kicking back, relaxing, and watching the animals do the work for them, rather than slaving in the fields).";
-                }
-                if (actualWork.Contains("mine") || actualWork.Contains("drill"))
-                {
-                    return "TRUE (This pawn is stressed/unstable and is lying or imagining their life is easier. They will lie and claim they found a secret stash of treasure or were just stargazing, rather than mining hard rock).";
-                }
-                if (actualWork.Contains("clean") || actualWork.Contains("haul"))
-                {
-                    return "TRUE (This pawn is stressed/unstable and is lying. They will lie and claim someone else did all their chores for them while they took a long nap).";
-                }
-                
-                return "TRUE (This pawn is stressed/unstable and is lying. They will pretend they had a luxurious, relaxing day and spent their time leisure-making, rather than doing hard labor).";
-            }
-
-            return "FALSE (Must speak truthfully about their recent work and locations).";
         }
 
         public static void TriggerEnvironmentalLlmDialogue(Pawn initiator, Pawn recipient, string type, string description)

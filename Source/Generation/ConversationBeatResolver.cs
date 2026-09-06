@@ -131,8 +131,9 @@ namespace RimSynapse.Conversations.Generation
         }
 
         /// <summary>A recent significant EventReflection the initiator lived through; deep talk takes the
-        /// weightiest, chit-chat a recent one. Honours the pair's recent-topic avoid set.</summary>
-        private static WeightedMemory SelectEventMemory(SynapseCorePawnComp core, bool deep, ICollection<string> avoid)
+        /// weightiest, chit-chat a recent one. Honours the pair's recent-topic avoid set. Public so the
+        /// in-game test suite exercises the LIVE selection (it previously tested a dead duplicate).</summary>
+        public static WeightedMemory SelectEventMemory(SynapseCorePawnComp core, bool deep, ICollection<string> avoid)
         {
             if (core?.memories == null || core.memories.Count == 0) return null;
             long nowAbs = Find.TickManager != null ? Find.TickManager.TicksAbs : 0L;

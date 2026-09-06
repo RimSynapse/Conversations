@@ -207,19 +207,19 @@ namespace RimSynapse.Conversations.Tests
                 core.AddMemory(death); death.isLongTerm = true; death.salience = 2f;
                 core.AddMemory(new WeightedMemory { summary = "idle chatter", memoryType = "social", weight = 0.2f, baseWeight = 0.2f, absTick = now - 50 });
 
-                var deep = Patch_Pawn_InteractionsTracker_TryInteractWith.SelectEventMemoryCandidate(core, true, null);
+                var deep = RimSynapse.Conversations.Generation.ConversationBeatResolver.SelectEventMemory(core, true, null);
                 Assert.True(deep != null && deep.summary.Contains("friend die"), "deep talk picks the weightiest event");
 
-                var chit = Patch_Pawn_InteractionsTracker_TryInteractWith.SelectEventMemoryCandidate(core, false, null);
+                var chit = RimSynapse.Conversations.Generation.ConversationBeatResolver.SelectEventMemory(core, false, null);
                 Assert.True(chit != null && chit.memoryType == "EventReflection", "chit-chat picks an EventReflection event");
 
                 var avoid = new HashSet<string> { "event:" + (deep.memId ?? deep.summary) };
-                var deep2 = Patch_Pawn_InteractionsTracker_TryInteractWith.SelectEventMemoryCandidate(core, true, avoid);
+                var deep2 = RimSynapse.Conversations.Generation.ConversationBeatResolver.SelectEventMemory(core, true, avoid);
                 Assert.True(deep2 != deep, "the avoid set excludes the just-told event");
 
                 var core2 = new SynapseCorePawnComp();
                 core2.AddMemory(new WeightedMemory { summary = "just chatting", memoryType = "social", weight = 0.2f, baseWeight = 0.2f, absTick = now });
-                Assert.True(Patch_Pawn_InteractionsTracker_TryInteractWith.SelectEventMemoryCandidate(core2, false, null) == null,
+                Assert.True(RimSynapse.Conversations.Generation.ConversationBeatResolver.SelectEventMemory(core2, false, null) == null,
                     "a pawn with no EventReflection memories yields no event topic");
 
                 return $"deep=\"{deep.summary}\", chit=\"{chit.summary}\", avoid excluded";

@@ -96,35 +96,6 @@ namespace RimSynapse.Conversations
             Settings.bubbleAlpha = listingStandard.Slider(Settings.bubbleAlpha, 0.1f, 1f);
             listingStandard.Gap(12f);
 
-            listingStandard.Label("Adjust Chat Topics:");
-            var allTopics = DefDatabase<ChatTopicDef>.AllDefsListForReading;
-            if (allTopics != null && allTopics.Count > 0)
-            {
-                foreach (var topic in allTopics)
-                {
-                    bool isEnabled = Settings.disabledTopicDefNames == null || !Settings.disabledTopicDefNames.Contains(topic.defName);
-                    bool check = isEnabled;
-                    listingStandard.CheckboxLabeled($"  {topic.topicName} ({(topic.isDeepTalk ? "Deep Talk" : "Chitchat")})", ref check, topic.description);
-                    if (check != isEnabled)
-                    {
-                        if (check)
-                        {
-                            Settings.disabledTopicDefNames.Remove(topic.defName);
-                        }
-                        else
-                        {
-                            if (Settings.disabledTopicDefNames == null) Settings.disabledTopicDefNames = new List<string>();
-                            Settings.disabledTopicDefNames.Add(topic.defName);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                listingStandard.Label("  (No XML chat topics loaded yet)");
-            }
-            listingStandard.Gap(12f);
-
             if (listingStandard.ButtonText("Open Encyclopedia"))
             {
                 Find.WindowStack.Add(new RimSynapse.UI.Dialog_Wiki());

@@ -5,8 +5,6 @@ namespace RimSynapse.Conversations
 {
     public class RimSynapseConversationsSettings : ModSettings
     {
-        public List<string> disabledTopicDefNames = new List<string>();
-        public bool enablePreGeneratedCaching = true;
         // EXPERIMENTAL: serve conversations from the pre-seed pool. Off by default — the pool can serve
         // stale context (weather, indoor pawns), so live generation is the measured baseline. See #29.
         public bool experimentalPreSeeding = false;
@@ -49,8 +47,6 @@ namespace RimSynapse.Conversations
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Collections.Look(ref disabledTopicDefNames, "disabledTopicDefNames", LookMode.Value);
-            Scribe_Values.Look(ref enablePreGeneratedCaching, "enablePreGeneratedCaching", true);
             Scribe_Values.Look(ref experimentalPreSeeding, "experimentalPreSeeding", false);
             Scribe_Values.Look(ref preStageEventConversations, "preStageEventConversations", true);
             Scribe_Values.Look(ref eventPreStageFireChance, "eventPreStageFireChance", 0.30f);
@@ -64,10 +60,6 @@ namespace RimSynapse.Conversations
             Scribe_Values.Look(ref bubbleBlue, "bubbleBlue", 0.12f);
             Scribe_Values.Look(ref bubbleAlpha, "bubbleAlpha", 0.85f);
             Scribe_Values.Look(ref conversationHistoryHours, "conversationHistoryHours", 24f);
-            if (disabledTopicDefNames == null)
-            {
-                disabledTopicDefNames = new List<string>();
-            }
         }
     }
 }

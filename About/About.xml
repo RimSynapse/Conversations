@@ -83,9 +83,10 @@ Full version history: https://github.com/RimSynapse/Conversations/wiki/Changelog
 - Ideology DLC: Compatible and Optional. Enables faith debates and active proselytizing.
 - Biotech DLC: Compatible and Optional. Enables xenotype dialects and mechanitor comms.
 - Anomaly DLC: Compatible and Optional. Enables paranoid void whispers.
-- RimSynapse - Psychology: Compatible and Optional. Colonists will naturally bring up their deep core memories, traumas, and trust levels during everyday conversations.
+- RimSynapse - Psychology: Required. Every line is voiced from the pawn's psychology - their core memories, traumas, trust and speaking voice - which is what makes these conversations theirs and not generic chatter.
 
 --- Requirements ---
 - RimSynapse - Core (Must be loaded before this mod)
+- RimSynapse - Psychology (Must be loaded before this mod)
     </description>
 </ModMetaData>
