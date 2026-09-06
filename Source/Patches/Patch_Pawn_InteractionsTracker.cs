@@ -12,9 +12,7 @@ namespace RimSynapse.Conversations.Patches
     /// <summary>
     /// Harmony patch on Pawn_InteractionsTracker.TryInteractWith to intercept pawn-to-pawn social interactions
     /// and generate dynamic AI-driven dialogues based on psychology profiles, activities, and environments.
-    /// Handler logic is split across partial files:
-    ///   - InteractionNonResponse.cs (non-response effects)
-    ///   - InteractionDialogue.cs (LLM dialogue, memory propagation, earshot)
+    /// Handler logic lives in the partial file InteractionDialogue.cs (LLM dialogue, memory propagation, earshot).
     /// </summary>
     [HarmonyPatch(typeof(Pawn_InteractionsTracker), nameof(Pawn_InteractionsTracker.TryInteractWith))]
     public static partial class Patch_Pawn_InteractionsTracker_TryInteractWith
@@ -69,8 +67,7 @@ namespace RimSynapse.Conversations.Patches
             if (Rand.Value > respChance)
             {
                 lastDialogueTickByPair[pairKey] = nowTick; // silent reaction still consumes the window
-                TriggerNonResponseEffects(initiator, recipient);
-                return; // Silent/Ellipses bubble, no LLM dialogue
+                return; // Silent, no LLM dialogue. (Canned "ignored you" memories were dropped, #61.)
             }
 
             // Trigger AI dialogue generation (mark the window synchronously since generation is async).

@@ -13,11 +13,11 @@ namespace RimSynapse.Conversations.UI
     /// </summary>
     public static class DebugActions_Conversations
     {
+        // Only the memory-tier keys survive the motivated-dialogue scrub (#61); the canned colonist keys
+        // (room/apparel/health/food/vanilla-opinion/residency) were retired.
         private static readonly string[] SampleKeys =
         {
-            "ownedRoom", "apparel", "health", "bondedAnimal", "food",
-            "memoriesToday", "memoriesLongTerm", "griefMemories", "traumaMemories",
-            "recipientRelationship", "personalitySummary", "residency"
+            "memoriesToday", "memoriesLongTerm", "griefMemories", "traumaMemories"
         };
 
         [DebugAction("RimSynapse", "Conversations: Dump context (Log)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]

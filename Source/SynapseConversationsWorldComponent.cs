@@ -255,12 +255,9 @@ namespace RimSynapse.Conversations
             return false;
         }
 
-        private static bool TopicIsDeep(string topicDefName)
-        {
-            if (string.IsNullOrEmpty(topicDefName)) return false;
-            var d = DefDatabase<ChatTopicDef>.GetNamedSilentFail(topicDefName);
-            return d != null && d.isDeepTalk;
-        }
+        // ChatTopicDef is retired; the pool key is the beat's topicKey, and "burden" is the resolver's only
+        // always-deep register. Folds into TalkingPoint.register when the pool is re-keyed per point (#60).
+        private static bool TopicIsDeep(string topicDefName) => topicDefName == "burden";
 
         public static Pawn PawnFromId(string thingId)
         {

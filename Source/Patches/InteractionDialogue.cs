@@ -103,12 +103,11 @@ namespace RimSynapse.Conversations.Patches
                         ApplyPsychologyOffsets(initiator, recipient, cached.trustOffset, cached.familiarityOffset);
                         ApplyVanillaAffinityThought(initiator, recipient, cached.affinityOffset);
 
-                        ChatTopicDef cachedTopic = DefDatabase<ChatTopicDef>.GetNamed(cached.topicDefName, false);
-                        string tName = cachedTopic != null ? cachedTopic.topicName : "Social";
+                        string tName = string.IsNullOrEmpty(cached.topicDefName) ? "Social" : cached.topicDefName;
                         PropagateContextMemories(initiator, recipient, tName, cached.initiatorStatement);
                         conversation.PushRecentTopic(cached.topicDefName);
                         float poolDist = initiator.Position.DistanceTo(recipient.Position);
-                        ConversationMetrics.Add(initiator, recipient, cachedTopic, poolDist, poolDist, 0, 0, "pool");
+                        ConversationMetrics.Add(initiator, recipient, cached.topicDefName, cached.topicDefName == "burden", poolDist, poolDist, 0, 0, "pool");
 
                         // Queue next background pre-generation to refill the cache
                         QueuePreGeneration(initiator, recipient, intDef);
@@ -179,7 +178,7 @@ namespace RimSynapse.Conversations.Patches
             conversation.lastTick = currentTick;
 
             float dist = (initiator.Spawned && recipient.Spawned) ? initiator.Position.DistanceTo(recipient.Position) : -1f;
-            ConversationMetrics.Add(initiator, recipient, null, dist, dist, 0, 0, "shed");
+            ConversationMetrics.Add(initiator, recipient, beat.topicKey, beat.isDeep, dist, dist, 0, 0, "shed");
         }
 
         /// <summary>Headless validation hook for the shed path (Conversations#38): run a shed conversation for
@@ -576,7 +575,7 @@ namespace RimSynapse.Conversations.Patches
                     latencySw.Stop();
                     float endDist = (initiator.Spawned && recipient.Spawned)
                         ? initiator.Position.DistanceTo(recipient.Position) : startDist;
-                    ConversationMetrics.Add(initiator, recipient, null, startDist, endDist,
+                    ConversationMetrics.Add(initiator, recipient, beat?.topicKey, beat?.isDeep ?? false, startDist, endDist,
                         Find.TickManager.TicksGame - startTick, latencySw.ElapsedMilliseconds, "live");
 
                     // Hand the remaining lines to the map's drip-feed player.
@@ -717,7 +716,7 @@ namespace RimSynapse.Conversations.Patches
             conversation.PushRecentTopic("event:" + staged.eventKey);
 
             float dist = (initiator.Spawned && recipient.Spawned) ? initiator.Position.DistanceTo(recipient.Position) : -1f;
-            ConversationMetrics.Add(initiator, recipient, null, dist, dist, 0, 0, "event-pool");
+            ConversationMetrics.Add(initiator, recipient, "event:" + staged.eventKey, false, dist, dist, 0, 0, "event-pool");
         }
 
         internal static void ApplyPsychologyOffsets(Pawn initiator, Pawn recipient, float trustOffset, float familiarityOffset)
