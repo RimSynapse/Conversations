@@ -32,14 +32,14 @@ One thing a pawn wants to say. Grounded in a Core memory or a synthetic key; the
 
 | # | Rule | Who | Reads | Register | Salience | Provenance | Audience | Example line | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | **Event** | any conversant | a significant Core `EventReflection` memory | heavy / emotional → DeepTalk, light → ChitChat | memory salience / weight | FirstHand | Anyone (matching skips anyone who holds the same memory — they were there) | "Still can't believe the pirates came through the east wall." | planned (step 2) |
-| 2 | **Burden** | any conversant | the weightiest thing on them (Core `GetTopMemoryBurdens`) | DeepTalk | memory weight | FirstHand | Anyone; `secret` if trauma / betrayal tagged | "I keep seeing Ada's face when I close my eyes." | planned (step 2) |
-| 3 | **Activity** | any conversant | the work they've been doing (Core `GetRecentJobsSummary`) | ChitChat | low | FirstHand | Anyone | "Been fixing that cooler all day. Again." | planned (step 2, folds #43) |
-| 4 | **Bond shift** | any conversant | a notable trust / familiarity change in Psychology `socialNetwork` | by magnitude | by magnitude | FirstHand | `Not(X)` — never said *to* the pawn it's about | "Something's off with Marco lately." | planned (step 2) |
-| 5 | **Link** | outsider pairs (resident ↔ visitor / trader / guest, resident ↔ new citizen) | the authored `ConversationLinkDef` bank, keyed by **role pair + direction** | ChitChat | low | FirstHand | role-scoped (a visitor's link only aims at residents) | visitor → resident: "What's new around here?" · resident → visitor: "What brings you this way?" · resident → new citizen: "Settling in yet?" | planned (step 2, folds #52 / #53) |
-| 6 | **Colony rumor** | visitors, at arrival | a random pick over Core's world-level event ledger (`shortTermEvents` / `pawnEventRecords`), capped at 1–2 per visitor | ChitChat | medium | **Heard**, no source pawn (the road told them) | residents | "Heard you took on someone new." · "Heard the raid went badly for the pirates." | planned (step 2) |
+| 1 | **Event** | any conversant | a significant Core `EventReflection` memory | heavy / emotional → DeepTalk, light → ChitChat | memory salience / weight | FirstHand | Anyone (matching skips anyone who holds the same memory — they were there) | "Still can't believe the pirates came through the east wall." | built (step 2; in-game validation queued on #59) |
+| 2 | **Burden** | any conversant | the weightiest thing on them (Core `GetTopMemoryBurdens`) | DeepTalk | memory weight | FirstHand | Anyone; `secret` if trauma / betrayal tagged | "I keep seeing Ada's face when I close my eyes." | built (step 2; in-game validation queued on #59) |
+| 3 | **Activity** | any conversant | the work they've been doing (Core `GetRecentJobsSummary`) | ChitChat | low | FirstHand | Anyone | "Been fixing that cooler all day. Again." | built (step 2, folds #43; in-game validation queued on #59) |
+| 4 | **Bond shift** | any conversant | a notable trust / familiarity change in Psychology `socialNetwork` | by magnitude | by magnitude | FirstHand | `Not(X)` — never said *to* the pawn it's about | "Something's off with Marco lately." | built (step 2; in-game validation queued on #59) |
+| 5 | **Link** | outsider pairs (resident ↔ visitor / trader / guest, resident ↔ new citizen) | the authored `ConversationLinkDef` bank, keyed by **role pair + direction** | ChitChat | low | FirstHand | role-scoped (a visitor's link only aims at residents) | visitor → resident: "What's new around here?" · resident → visitor: "What brings you this way?" · resident → new citizen: "Settling in yet?" | built (step 2, folds #52 / #53; in-game validation queued on #59) |
+| 6 | **Colony rumor** | visitors, at arrival | a random pick over Core's world-level event ledger (`shortTermEvents` / `pawnEventRecords`), capped at 1–2 per visitor | ChitChat | medium | **Heard**, no source pawn (the road told them) | residents | "Heard you took on someone new." · "Heard the raid went badly for the pirates." | built (step 2; in-game validation queued on #59) |
 | 7 | **Propagated** | any listener, after being told | the point they were just served | inherits | scaled by a spread factor; `secret` points rarely spread | **Heard**, source = the teller | excludes the teller | "Joseph says he can't sleep since the raid." | planned (step 5, #36) |
-| 8 | **Ambient** (last resort) | a pawn whose agenda is empty | weather / "nothing much" — the only surviving reactive pick | ChitChat | lowest | FirstHand | Anyone | "Cold one today." | planned (step 2) |
+| 8 | **Ambient** (last resort) | a pawn whose agenda is empty | weather / "nothing much" — the only surviving reactive pick | ChitChat | lowest | FirstHand | Anyone | "Cold one today." | built (step 2; in-game validation queued on #59) |
 
 ### Why Link exists
 
@@ -92,13 +92,14 @@ All under the **RimSynapse** debug category; the pawn-targeted ones work headles
 | --- | --- |
 | Conversations: Dump agenda | The comp is present and its points are readable (subject, register, salience, provenance, audience, told, age). |
 | Conversations: Add sample point (newest memory) | Add / cap / dedupe, seeded from the pawn's newest memory. |
-| Force-form point *(step 2)* | Formation from a chosen memory without waiting for the cadence. |
+| Conversations: Force-form points | A full formation pass (decay + every rule) for the pawn right now, then the agenda dump. |
+| Conversations: Seed colony rumors | Rule 6 on any pawn, from Core's event ledger, with the once-per-visit flag cleared. |
 | Force serve / propagate *(steps 4–5)* | Fire a point to the nearest valid listener and show the derived rumor. |
 
 ## Build order
 
 1. **Data model** — point, agenda comp, injection, scribe. *Landed.*
-2. **Formation** — rules 1–6 and 8 on a cadence; `ConversationLinkDef` + authored bank.
+2. **Formation** — rules 1–6 and 8 on a cadence; `ConversationLinkDef` + authored bank. *Built; in-game validation pending.*
 3. **Pregeneration** — point → beat → pooled conversation.
 4. **Trigger swap** — the psychology / proximity scan replaces the vanilla hook.
 5. **Propagation** — rule 7, the rumor mill.

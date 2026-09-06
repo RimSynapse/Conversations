@@ -19,6 +19,19 @@ namespace RimSynapse.Conversations.Comps
 
         public List<TalkingPoint> points = new List<TalkingPoint>();
 
+        /// <summary>Subjects recently pruned or consumed (ring, newest last) so formation does not reform
+        /// the same point the moment decay retires it.</summary>
+        public List<string> retiredSubjects = new List<string>();
+        public const int MaxRetired = 16;
+
+        /// <summary>Bond-shift baselines (rule 4): last-seen Psychology trust/warmth per other pawn (their
+        /// unique load id, as the social network keys them).</summary>
+        public Dictionary<string, float> bondTrust = new Dictionary<string, float>();
+        public Dictionary<string, float> bondWarmth = new Dictionary<string, float>();
+
+        /// <summary>Colony rumors (rule 6) are seeded once per visit.</summary>
+        public bool rumorsSeeded;
+
         public Pawn Pawn => parent as Pawn;
         public bool IsEmpty => points == null || points.Count == 0;
         public int Count => points?.Count ?? 0;
@@ -61,14 +74,46 @@ namespace RimSynapse.Conversations.Comps
 
         public int RemoveAll(System.Predicate<TalkingPoint> match) => points.RemoveAll(match);
 
+        /// <summary>Remove matching points AND retire their subjects, so they don't reform next pass.</summary>
+        public int Prune(System.Predicate<TalkingPoint> match)
+        {
+            int n = 0;
+            for (int i = points.Count - 1; i >= 0; i--)
+            {
+                if (!match(points[i])) continue;
+                Retire(points[i].subjectMemId);
+                points.RemoveAt(i);
+                n++;
+            }
+            return n;
+        }
+
+        public void Retire(string subjectMemId)
+        {
+            if (string.IsNullOrEmpty(subjectMemId)) return;
+            retiredSubjects.Remove(subjectMemId);
+            retiredSubjects.Add(subjectMemId);
+            while (retiredSubjects.Count > MaxRetired) retiredSubjects.RemoveAt(0);
+        }
+
+        public bool IsRetired(string subjectMemId)
+            => !string.IsNullOrEmpty(subjectMemId) && retiredSubjects.Contains(subjectMemId);
+
         public override void PostExposeData()
         {
             base.PostExposeData();
             Scribe_Collections.Look(ref points, "points", LookMode.Deep);
+            Scribe_Collections.Look(ref retiredSubjects, "retiredSubjects", LookMode.Value);
+            Scribe_Collections.Look(ref bondTrust, "bondTrust", LookMode.Value, LookMode.Value);
+            Scribe_Collections.Look(ref bondWarmth, "bondWarmth", LookMode.Value, LookMode.Value);
+            Scribe_Values.Look(ref rumorsSeeded, "rumorsSeeded", false);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 if (points == null) points = new List<TalkingPoint>();
                 points.RemoveAll(p => p == null);
+                if (retiredSubjects == null) retiredSubjects = new List<string>();
+                if (bondTrust == null) bondTrust = new Dictionary<string, float>();
+                if (bondWarmth == null) bondWarmth = new Dictionary<string, float>();
             }
         }
     }

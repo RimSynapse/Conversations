@@ -1,6 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
+using Verse;
+using RimSynapse.Comps;
+using RimSynapse.Models;
 using RimSynapse.Conversations;
+using RimSynapse.Conversations.Generation;
 using RimSynapse.Conversations.Comps;
 using RimAgentic.Testing;
 
@@ -77,6 +81,72 @@ namespace RimSynapse.Conversations.Tests
                 Assert.True(rumor.Accepts("U"), "a rumor may be retold to others");
                 Assert.True(rumor.Told("U") == false && !rumor.Told(null), "told-status is per listener");
                 return "audience ok";
+            });
+
+            // Formation rules 1–2 (event, burden) over a synthetic Core comp — register, secret, dedupe.
+            yield return new SynapseTestCase("Conversations_FormationFromMemories", () =>
+            {
+                long nowAbs = Find.TickManager != null ? Find.TickManager.TicksAbs : 1000000L;
+                var core = new SynapseCorePawnComp();
+                core.AddMemory(new WeightedMemory { summary = "the pirates came through the east wall", memoryType = "EventReflection", weight = 0.9f, baseWeight = 0.9f, absTick = nowAbs - 1000, tags = new List<string> { "Horror" } });
+                core.AddMemory(new WeightedMemory { summary = "swapped stories by the fire", memoryType = "EventReflection", weight = 0.2f, baseWeight = 0.2f, absTick = nowAbs - 2000 });
+                core.AddMemory(new WeightedMemory { summary = "a dull chore a season ago", memoryType = "social", weight = 0.1f, baseWeight = 0.1f, absTick = nowAbs - 900000 });
+
+                var agenda = new SynapseConversationAgendaComp();
+                var trace = new List<string>();
+                AgendaFormation.FormFromMemories(core, agenda, 100, nowAbs, 0.7f, null, trace);
+
+                var ev = agenda.points.FirstOrDefault(p => p.subjectSummary.Contains("east wall"));
+                Assert.True(ev != null, "the strongest fresh event forms a point");
+                Assert.Equal(PointRegister.DeepTalk, ev.register, "a heavy event is deep talk");
+                Assert.True(ev.secret, "a Horror-tagged memory is secret");
+                Assert.True(ev.salience > 0.9f, "a fresh event gets the recency bonus");
+                Assert.False(agenda.points.Any(p => p.subjectSummary.Contains("dull chore")), "a trivial memory is not a burden");
+                Assert.True(agenda.points.Count(p => p.subjectSummary.Contains("east wall")) == 1, "event and burden dedupe on the same memory");
+
+                int before = agenda.Count;
+                AgendaFormation.FormFromMemories(core, agenda, 200, nowAbs, 0.7f, null, null);
+                Assert.True(agenda.Count >= before, "a second pass never removes points");
+                Assert.True(agenda.points.Count(p => p.subjectSummary.Contains("east wall")) == 1, "a second pass does not duplicate");
+
+                Assert.Equal(PointRegister.ChitChat, AgendaFormation.RegisterFor(new WeightedMemory { weight = 0.3f }, 0.8f), "a light memory in a good mood is chit-chat");
+                Assert.Equal(PointRegister.DeepTalk, AgendaFormation.RegisterFor(new WeightedMemory { weight = 0.45f }, 0.2f), "a moderate memory in a low mood turns deep");
+                return $"trace=[{string.Join("; ", trace)}]";
+            });
+
+            // Decay & prune (§3): weak, spent and stale points go, and their subjects are retired.
+            yield return new SynapseTestCase("Conversations_AgendaDecayAndRetire", () =>
+            {
+                var agenda = new SynapseConversationAgendaComp();
+                agenda.Add(new TalkingPoint { subjectMemId = "fresh", subjectSummary = "s", salience = 0.9f, formedTick = 900 });
+                agenda.Add(new TalkingPoint { subjectMemId = "weak", subjectSummary = "s", salience = 0.05f, formedTick = 900 });
+                agenda.Add(new TalkingPoint { subjectMemId = "stale", subjectSummary = "s", salience = 0.8f, formedTick = 0 });
+                var spent = new TalkingPoint { subjectMemId = "spent", subjectSummary = "s", salience = 0.8f, formedTick = 900, audience = AudienceKind.Only, audiencePawnId = "A" };
+                spent.MarkTold("A");
+                agenda.Add(spent);
+
+                int pruned = AgendaFormation.DecayAndPrune(agenda, 1000, retentionTicks: 500);
+                Assert.Equal(3, pruned, "weak, stale and spent points are pruned");
+                Assert.Equal(1, agenda.Count, "the fresh point survives");
+                Assert.True(agenda.points[0].salience < 0.9f && agenda.points[0].salience > 0.8f, "surviving salience decayed by one pass");
+                Assert.True(agenda.IsRetired("weak") && agenda.IsRetired("stale") && agenda.IsRetired("spent"), "pruned subjects are retired");
+                Assert.False(agenda.IsRetired("fresh"), "a live subject is not retired");
+                return "decay ok";
+            });
+
+            // Link bank (rule 5): the authored pairs resolve; same-role pairs never do.
+            yield return new SynapseTestCase("Conversations_LinkBankPairs", () =>
+            {
+                Assert.True(LinkBank.FindDef(LinkRole.Visitor, LinkRole.Resident) != null, "visitor->resident openers exist");
+                Assert.True(LinkBank.FindDef(LinkRole.Resident, LinkRole.Visitor) != null, "resident->visitor openers exist");
+                Assert.True(LinkBank.FindDef(LinkRole.Resident, LinkRole.NewCitizen) != null, "resident->new citizen openers exist");
+                Assert.True(LinkBank.FindDef(LinkRole.NewCitizen, LinkRole.Resident) != null, "new citizen->resident openers exist");
+                Assert.True(LinkBank.FindDef(LinkRole.Guest, LinkRole.Resident) != null, "guest->resident openers exist");
+                Assert.True(LinkBank.FindDef(LinkRole.Visitor, LinkRole.Visitor) == null, "same-role pairs have no link");
+                Assert.True(LinkBank.FindDef(LinkRole.None, LinkRole.Resident) == null, "None never links");
+                string line = LinkBank.PickLine(LinkBank.FindDef(LinkRole.Visitor, LinkRole.Resident));
+                Assert.True(!string.IsNullOrEmpty(line), "a picked opener is a real line");
+                return $"sample=\"{line}\"";
             });
         }
     }

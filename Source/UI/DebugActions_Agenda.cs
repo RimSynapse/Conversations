@@ -74,5 +74,30 @@ namespace RimSynapse.Conversations.UI
             RimSynapse.SynapseLogger.Info(Cat,
                 $"[RimSynapse] {p.LabelShort}: {(kept ? "ADDED" : "REJECTED (cap/dup)")} {point}  agenda {before}->{agenda.Count}");
         }
+
+        /// <summary>Run a full formation pass for the pawn right now (decay + every rule), bypassing the sweep
+        /// cadence, then dump the agenda. This is the step-2 proof-of-function (#60 §8 "Force-form point").</summary>
+        [DebugAction("RimSynapse", "Conversations: Force-form points (Log)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceFormPoints(Pawn p)
+        {
+            if (p == null || p.Map == null) return;
+            string trace = RimSynapse.Conversations.Generation.AgendaFormation.FormFor(p, Find.TickManager.TicksGame, p.Map.mapPawns.AllPawnsSpawned);
+            RimSynapse.SynapseLogger.Info(Cat, $"[RimSynapse] Formation for {p.LabelShort} (role {LinkBank.RoleOf(p)}, conversant {RimSynapse.SynapseCoreProviders.MayConverse(p)}): {trace}");
+            DumpAgenda(p);
+        }
+
+        /// <summary>Re-seed colony rumors on any pawn (clears the once-per-visit flag first) so rule 6 is
+        /// inspectable without waiting for a visitor.</summary>
+        [DebugAction("RimSynapse", "Conversations: Seed colony rumors (Log)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void SeedColonyRumors(Pawn p)
+        {
+            var agenda = p?.TryGetComp<SynapseConversationAgendaComp>();
+            if (agenda == null) return;
+            agenda.rumorsSeeded = false;
+            int n = RimSynapse.Conversations.Generation.AgendaFormation.SeedColonyRumors(p, agenda, Find.TickManager.TicksGame);
+            var wc = Find.World?.GetComponent<RimSynapse.SynapseCoreWorldComponent>();
+            RimSynapse.SynapseLogger.Info(Cat, $"[RimSynapse] Seeded {n} colony rumor(s) on {p.LabelShort} from {wc?.shortTermEvents?.Count ?? 0} ledger event(s).");
+            DumpAgenda(p);
+        }
     }
 }

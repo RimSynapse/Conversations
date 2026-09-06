@@ -106,6 +106,37 @@ namespace RimSynapse.Conversations
 
             // Outsiders (raiders, traders, visitors) get cheap authored barks (#52), on their own slow cadence.
             ProcessOutsiderBarks();
+
+            // Talking-point formation (#60 Phase 1 §2) — the psychology hook, on its own cadence.
+            ProcessAgendaFormation();
+        }
+
+        // ── Agenda formation (#60) ───────────────────────────────────────
+        // One sweep every FormationSweepInterval ticks over the spawned pawns, forming for a quarter of them
+        // (staggered by thingIDNumber) — so each pawn forms roughly once per in-game hour and no tick ever
+        // evaluates everyone at once. Residents run the memory/bond/activity rules; visitors, traders and
+        // guests get link openers and colony rumors; raiders and prisoners are skipped (bark / warden paths).
+        private const int FormationSweepInterval = 625;
+        private int lastFormationSweepTick = -1;
+        private int formationCohort;
+
+        private void ProcessAgendaFormation()
+        {
+            int now = Find.TickManager.TicksGame;
+            if (lastFormationSweepTick >= 0 && now - lastFormationSweepTick < FormationSweepInterval) return;
+            lastFormationSweepTick = now;
+            formationCohort = (formationCohort + 1) & 3;
+
+            var all = map.mapPawns.AllPawnsSpawned;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var pawn = all[i];
+                if (pawn == null || pawn.Dead || pawn.RaceProps == null || !pawn.RaceProps.Humanlike) continue;
+                if ((pawn.thingIDNumber & 3) != formationCohort) continue;
+                if (RimSynapse.Conversations.LinkBank.RoleOf(pawn) == RimSynapse.Conversations.LinkRole.None
+                    && !RimSynapse.SynapseCoreProviders.MayConverse(pawn)) continue;
+                RimSynapse.Conversations.Generation.AgendaFormation.FormFor(pawn, now, all);
+            }
         }
 
         // ── Outsider barks (#52) ─────────────────────────────────────────
