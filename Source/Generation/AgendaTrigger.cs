@@ -170,12 +170,15 @@ namespace RimSynapse.Conversations.Generation
                 mc.EnqueuePlayback(speaker, listener, conversation, lines.GetRange(1, lines.Count - 1));
 
             // Consume (§3): told THIS listener; a point whose whole audience has heard it is spent.
+            // Propagate (§5): the listener gains a derived Heard point — the rumor mill.
+            // Count (§6): who tells whom, the raw material for cliques.
             if (point != null)
             {
                 point.MarkTold(idB);
                 if (point.FullyTold && agenda != null) agenda.Prune(p => p.id == point.id);
-                // Propagate (§5, step 5): the listener gains a derived Heard point here.
+                AgendaPropagation.OnServed(speaker, listener, point, now);
             }
+            wc.RecordExchange(idA, idB);
         }
 
         // ═════════════════════════════════════════════════════════════════════════════════════════

@@ -38,7 +38,7 @@ One thing a pawn wants to say. Grounded in a Core memory or a synthetic key; the
 | 4 | **Bond shift** | any conversant | a notable trust / familiarity change in Psychology `socialNetwork` | by magnitude | by magnitude | FirstHand | `Not(X)` — never said *to* the pawn it's about | "Something's off with Marco lately." | built (step 2; in-game validation queued on #59) |
 | 5 | **Link** | outsider pairs (resident ↔ visitor / trader / guest, resident ↔ new citizen) | the authored `ConversationLinkDef` bank, keyed by **role pair + direction** | ChitChat | low | FirstHand | role-scoped (a visitor's link only aims at residents) | visitor → resident: "What's new around here?" · resident → visitor: "What brings you this way?" · resident → new citizen: "Settling in yet?" | built (step 2, folds #52 / #53; in-game validation queued on #59) |
 | 6 | **Colony rumor** | visitors, at arrival | a random pick over Core's world-level event ledger (`shortTermEvents` / `pawnEventRecords`), capped at 1–2 per visitor | ChitChat | medium | **Heard**, no source pawn (the road told them) | residents | "Heard you took on someone new." · "Heard the raid went badly for the pirates." | built (step 2; in-game validation queued on #59) |
-| 7 | **Propagated** | any listener, after being told | the point they were just served | inherits | scaled by a spread factor; `secret` points rarely spread | **Heard**, source = the teller | excludes the teller | "Joseph says he can't sleep since the raid." | planned (step 5, #36) |
+| 7 | **Propagated** | any listener, after being told | the point they were just served — only memories, bond shifts and rumors; never openers or small talk | inherits | × 0.6 per hop (a chain dies below 0.12); a `secret` re-spreads 15% of the time and stays secret | **Heard**, source = the teller | excludes the teller; a `Not(X)` carries over so X never hears it second-hand either | "Joseph says he can't sleep since the raid." | built (step 5, #36; in-game validation queued on #59) |
 | 8 | **Ambient** (last resort) | a pawn whose agenda is empty | weather / "nothing much" — the only surviving reactive pick | ChitChat | lowest | FirstHand | Anyone | "Cold one today." | built (step 2; in-game validation queued on #59) |
 
 ### Why Link exists
@@ -98,7 +98,8 @@ All under the **RimSynapse** debug category; the pawn-targeted ones work headles
 | Conversations: Dump point pool | Every pooled point conversation with its lines, plus how many are in flight. |
 | Conversations: Force serve pooled point | Serves the first pooled conversation the pawn speaks in, bypassing range / mood / cooldown: the lines play, offsets apply, the point is consumed for that listener. |
 | Conversations: Dump trigger gates | Why the trigger would or wouldn't fire for the pawn right now: the talking-mood gate, then the pair gate for each pooled entry. |
-| Force propagate *(step 5)* | Serve a point and show the listener's derived rumor. |
+| Conversations: Force propagate top point | Propagates the pawn's strongest rumor-material point to the nearest listener (forcing past the secret roll) and dumps the listener's agenda to show the derived rumor. |
+| Conversations: Dump exchange counts | Who has told whom how often — the raw clique read. |
 
 ## Build order
 
@@ -106,7 +107,7 @@ All under the **RimSynapse** debug category; the pawn-targeted ones work headles
 2. **Formation** — rules 1–6 and 8 on a cadence; `ConversationLinkDef` + authored bank. *Built; in-game validation pending.*
 3. **Pregeneration** — point → beat → pooled conversation. *Built; in-game validation pending.*
 4. **Trigger swap** — the psychology / proximity scan replaces the vanilla hook. *Built; in-game validation pending.* The pair-keyed pre-seed pool and event pre-staging folded into point-driven pregeneration here; live generation survives only as a debug force.
-5. **Propagation** — rule 7, the rumor mill.
-6. **Cliques** — exchange counts per pair (follow-on).
+5. **Propagation** — rule 7, the rumor mill. *Built; in-game validation pending.*
+6. **Cliques** — exchange counts per ordered pair. *v1 counts built (scribed, "Dump exchange counts"); detection is a follow-on.*
 
 Steps 2–5 change behaviour and are validated in-game before they count as done.

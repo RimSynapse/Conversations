@@ -194,5 +194,43 @@ namespace RimSynapse.Conversations.UI
             }
             if (n == 0) RimSynapse.SynapseLogger.Info(Cat, "  (no pooled conversations with this pawn as speaker)");
         }
+
+        /// <summary>Propagate the pawn's strongest propagatable point to the nearest valid listener right now
+        /// (no lines played; forces past the secret-spread roll) and dump the listener's agenda so the derived
+        /// rumor is inspectable. Step-5 proof-of-function (#60 §8 "Force propagate").</summary>
+        [DebugAction("RimSynapse", "Conversations: Force propagate top point (Log)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForcePropagateTopPoint(Pawn p)
+        {
+            if (p == null || p.Map == null) return;
+            var agenda = p.TryGetComp<SynapseConversationAgendaComp>();
+            if (agenda == null || agenda.IsEmpty) { RimSynapse.SynapseLogger.Info(Cat, $"[RimSynapse] {p.LabelShort}: empty agenda — force-form first."); return; }
+            var all = p.Map.mapPawns.AllPawnsSpawned;
+            foreach (var point in agenda.points)
+            {
+                if (!RimSynapse.Conversations.Generation.AgendaPropagation.Propagates(point)) { RimSynapse.SynapseLogger.Info(Cat, $"  not rumor material: {point}"); continue; }
+                var listener = RimSynapse.Conversations.Generation.AgendaPregeneration.Match(p, point, all, 60f);
+                if (listener == null) { RimSynapse.SynapseLogger.Info(Cat, $"  no listener for {point}"); continue; }
+                var derived = RimSynapse.Conversations.Generation.AgendaPropagation.OnServed(p, listener, point, Find.TickManager.TicksGame, roll: 0f);
+                point.MarkTold(listener.ThingID);
+                RimSynapse.SynapseLogger.Info(Cat, $"[RimSynapse] {p.LabelShort} -> {listener.LabelShort}: {(derived != null ? "DERIVED " + derived : "nothing derived (already held / retired / too faint)")}");
+                DumpAgenda(listener);
+                return;
+            }
+        }
+
+        [DebugAction("RimSynapse", "Conversations: Dump exchange counts (Log)", allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void DumpExchangeCounts()
+        {
+            var wc = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            if (wc == null) return;
+            RimSynapse.SynapseLogger.Info(Cat, $"--- Exchange counts ({wc.exchangeCounts.Count} ordered pairs) ---");
+            foreach (var kv in wc.exchangeCounts.OrderByDescending(kv => kv.Value).Take(25))
+            {
+                var ids = kv.Key.Split('>');
+                string a = ids.Length > 0 ? SynapseConversationsWorldComponent.PawnFromId(ids[0])?.LabelShort ?? ids[0] : "?";
+                string b = ids.Length > 1 ? SynapseConversationsWorldComponent.PawnFromId(ids[1])?.LabelShort ?? ids[1] : "?";
+                RimSynapse.SynapseLogger.Info(Cat, $"  {a} -> {b}: {kv.Value}");
+            }
+        }
     }
 }

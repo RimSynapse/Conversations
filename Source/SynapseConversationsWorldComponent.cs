@@ -57,18 +57,40 @@ namespace RimSynapse.Conversations
 
         public SynapseConversationsWorldComponent(World world) : base(world) { }
 
+        // ── Exchange counts (#60 §6 cliques, v1) ─────────────────────────
+        // Who tells whom, per ORDERED pair ("speaker>listener"). High mutual exchange is a clique; v1 only
+        // records the counts (detection is a follow-on), scribed so they accumulate over a colony's life.
+        public Dictionary<string, int> exchangeCounts = new Dictionary<string, int>();
+
+        public void RecordExchange(string speakerId, string listenerId)
+        {
+            if (string.IsNullOrEmpty(speakerId) || string.IsNullOrEmpty(listenerId)) return;
+            string k = speakerId + ">" + listenerId;
+            exchangeCounts.TryGetValue(k, out int n);
+            exchangeCounts[k] = n + 1;
+        }
+
+        /// <summary>How often <paramref name="speakerId"/> has told <paramref name="listenerId"/> something.</summary>
+        public int TellCount(string speakerId, string listenerId)
+            => exchangeCounts.TryGetValue(speakerId + ">" + listenerId, out int n) ? n : 0;
+
+        /// <summary>Both directions — the mutual-exchange strength a clique read would use.</summary>
+        public int ExchangeCount(string a, string b) => TellCount(a, b) + TellCount(b, a);
+
         public override void ExposeData()
         {
             base.ExposeData();
             Scribe_Collections.Look(ref pawnConversations, "pawnConversations", LookMode.Deep);
             Scribe_Collections.Look(ref preGenPool, "preGenPool", LookMode.Deep);
             Scribe_Collections.Look(ref outsiderFlavor, "outsiderFlavor", LookMode.Deep);
+            Scribe_Collections.Look(ref exchangeCounts, "exchangeCounts", LookMode.Value, LookMode.Value);
 
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
                 if (pawnConversations == null) pawnConversations = new List<PawnConversation>();
                 if (preGenPool == null) preGenPool = new List<PreGeneratedConversation>();
                 if (outsiderFlavor == null) outsiderFlavor = new List<OutsiderFlavorBank>();
+                if (exchangeCounts == null) exchangeCounts = new Dictionary<string, int>();
             }
         }
 

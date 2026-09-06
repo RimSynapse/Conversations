@@ -237,6 +237,59 @@ namespace RimSynapse.Conversations.Tests
                 Assert.True(mc == null || mc.IsInPlayback(a), "remaining lines are drip-feeding");
                 return $"{a.LabelShort} -> {b.LabelShort}: served, told, spent";
             });
+
+            // Propagation (step 5, #36): the rumor mill as one rule over the agenda graph.
+            yield return new SynapseTestCase("Conversations_PropagationDerivesRumors", () =>
+            {
+                var told = new SynapseConversationAgendaComp();
+                var first = new TalkingPoint { subjectMemId = "100_ab", subjectSummary = "the pirates came through the east wall", salience = 0.8f, register = PointRegister.DeepTalk };
+
+                var d = AgendaPropagation.Derive("T", first, told, 10, roll: 0.5f);
+                Assert.True(d != null, "a first-hand memory point propagates");
+                Assert.Equal(PointProvenance.Heard, d.provenance, "the derived point is a rumor");
+                Assert.Equal("T", d.sourcePawnId, "source is the teller");
+                Assert.True(d.salience > 0.47f && d.salience < 0.49f, "salience is scaled by the spread factor");
+                Assert.False(d.Accepts("T"), "a rumor is never retold to its source");
+                Assert.True(d.Accepts("U"), "a rumor may be retold to others");
+                Assert.True(AgendaPropagation.Derive("T", first, told, 11, 0.5f) == null, "already held: no duplicate rumor");
+
+                // Chain: the listener tells a third pawn; salience decays again; source moves on.
+                var third = new SynapseConversationAgendaComp();
+                var dd = AgendaPropagation.Derive("L", d, third, 20, 0.5f);
+                Assert.True(dd != null && dd.sourcePawnId == "L", "a rumor re-propagates with the new teller as source");
+                Assert.True(dd.salience > 0.28f && dd.salience < 0.30f, "chains decay geometrically");
+                var faint = new TalkingPoint { subjectMemId = "faint", subjectSummary = "s", salience = 0.15f };
+                Assert.True(AgendaPropagation.Derive("T", faint, new SynapseConversationAgendaComp(), 1, 0.5f) == null, "a faint point dies rather than spreading");
+
+                // Secrets resist.
+                var secret = new TalkingPoint { subjectMemId = "200_cd", subjectSummary = "s", salience = 0.9f, secret = true };
+                Assert.True(AgendaPropagation.Derive("T", secret, new SynapseConversationAgendaComp(), 1, 0.5f) == null, "a secret usually is not re-spread");
+                var leaked = AgendaPropagation.Derive("T", secret, new SynapseConversationAgendaComp(), 1, 0.05f);
+                Assert.True(leaked != null && leaked.secret, "when a secret does spread it stays secret");
+
+                // Audience carries over; openers and small talk are not rumor material.
+                var about = new TalkingPoint { subjectMemId = "bond:Thing_Human9", subjectSummary = "s", salience = 0.7f, audience = AudienceKind.Not, audiencePawnId = "Thing_Human9" };
+                var da = AgendaPropagation.Derive("T", about, new SynapseConversationAgendaComp(), 1, 0.5f);
+                Assert.True(da != null && da.audience == AudienceKind.Not && da.audiencePawnId == "Thing_Human9", "never say it TO them, even second-hand");
+                Assert.False(AgendaPropagation.Propagates(new TalkingPoint { subjectMemId = "link:X:Y", subjectSummary = "s", audience = AudienceKind.Only, audiencePawnId = "Y" }), "an opener is not a rumor");
+                Assert.False(AgendaPropagation.Propagates(new TalkingPoint { subjectMemId = "activity:cooking", subjectSummary = "s" }), "small talk is not a rumor");
+                Assert.True(AgendaPropagation.Propagates(new TalkingPoint { subjectMemId = "rumor:1:ab", subjectSummary = "s" }), "a rumor is rumor material");
+                return $"first={first.salience:F2} heard={d.salience:F2} chain={dd.salience:F2}";
+            });
+
+            // Exchange counts (step 6 v1): ordered-pair tallies, both directions summed for the clique read.
+            yield return new SynapseTestCase("Conversations_ExchangeCounts", () =>
+            {
+                var wc = new SynapseConversationsWorldComponent(Find.World);
+                wc.RecordExchange("A", "B"); wc.RecordExchange("A", "B"); wc.RecordExchange("B", "A");
+                wc.RecordExchange(null, "B");
+                Assert.Equal(2, wc.TellCount("A", "B"), "A told B twice");
+                Assert.Equal(1, wc.TellCount("B", "A"), "B told A once");
+                Assert.Equal(3, wc.ExchangeCount("A", "B"), "mutual exchange sums both directions");
+                Assert.Equal(0, wc.ExchangeCount("A", "C"), "strangers have none");
+                Assert.Equal(2, wc.exchangeCounts.Count, "null ids are ignored");
+                return "counts ok";
+            });
         }
     }
 }
