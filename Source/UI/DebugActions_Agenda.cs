@@ -99,5 +99,47 @@ namespace RimSynapse.Conversations.UI
             RimSynapse.SynapseLogger.Info(Cat, $"[RimSynapse] Seeded {n} colony rumor(s) on {p.LabelShort} from {wc?.shortTermEvents?.Count ?? 0} ledger event(s).");
             DumpAgenda(p);
         }
+
+        /// <summary>Match the pawn's strongest point to a listener and queue ONE pregeneration now, ignoring
+        /// the sweep budget (still honours the pool bound and the in-flight guard). The result arrives async —
+        /// check "Dump point pool" a few seconds later. Step-3 proof-of-function (#60).</summary>
+        [DebugAction("RimSynapse", "Conversations: Pregenerate top point (Log)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void PregenerateTopPoint(Pawn p)
+        {
+            if (p == null || p.Map == null) return;
+            var agenda = p.TryGetComp<SynapseConversationAgendaComp>();
+            var wc = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            if (agenda == null || wc == null) return;
+            if (agenda.IsEmpty) { RimSynapse.SynapseLogger.Info(Cat, $"[RimSynapse] {p.LabelShort} has an empty agenda — force-form first."); return; }
+
+            var all = p.Map.mapPawns.AllPawnsSpawned;
+            foreach (var point in agenda.points)
+            {
+                var listener = RimSynapse.Conversations.Generation.AgendaPregeneration.Match(p, point, all);
+                if (listener == null) { RimSynapse.SynapseLogger.Info(Cat, $"  no listener in range for {point}"); continue; }
+                if (wc.HasPooledPoint(p.ThingID, listener.ThingID, point.id)) { RimSynapse.SynapseLogger.Info(Cat, $"  already pooled for {listener.LabelShort}: {point}"); continue; }
+                var beat = RimSynapse.Conversations.Generation.AgendaBeatBuilder.FromPoint(p, listener, point);
+                bool queued = RimSynapse.Conversations.Generation.AgendaPregeneration.QueuePointGeneration(p, listener, point, wc, Find.TickManager.TicksGame);
+                RimSynapse.SynapseLogger.Info(Cat, $"[RimSynapse] {(queued ? "QUEUED" : "already in flight")} {p.LabelShort} -> {listener.LabelShort}: subject=\"{beat.subject}\" | {p.LabelShort}: {beat.initiatorStance} | {listener.LabelShort}: {beat.recipientStance} | tone={beat.tone} framing={beat.framing}");
+                return;
+            }
+        }
+
+        [DebugAction("RimSynapse", "Conversations: Dump point pool (Log)", allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void DumpPointPool()
+        {
+            var wc = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            if (wc == null) return;
+            RimSynapse.SynapseLogger.Info(Cat, $"--- Point pool: {wc.PointPreGenCount}/{SynapseConversationsWorldComponent.MaxPointPreGensTotal} pooled, {wc.PendingPointGenCount} in flight ---");
+            foreach (var c in wc.PooledPoints())
+            {
+                string a = SynapseConversationsWorldComponent.PawnFromId(c.initiatorId)?.LabelShort ?? c.initiatorId;
+                string b = SynapseConversationsWorldComponent.PawnFromId(c.recipientId)?.LabelShort ?? c.recipientId;
+                RimSynapse.SynapseLogger.Info(Cat, $"  {a} -> {b} [{c.pointId}] {(c.isDeep ? "deep" : "chit")} {c.lines?.Count ?? 2} lines, age {(Find.TickManager.TicksGame - c.generatedAtTick) / 2500f:F1}h, topic {c.topicDefName}");
+                if (c.lines != null)
+                    foreach (var l in c.lines)
+                        RimSynapse.SynapseLogger.Info(Cat, $"      {(SynapseConversationsWorldComponent.PawnFromId(l.speakerId)?.LabelShort ?? l.speakerId)}: {l.text}");
+            }
+        }
     }
 }

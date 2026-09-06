@@ -94,13 +94,15 @@ All under the **RimSynapse** debug category; the pawn-targeted ones work headles
 | Conversations: Add sample point (newest memory) | Add / cap / dedupe, seeded from the pawn's newest memory. |
 | Conversations: Force-form points | A full formation pass (decay + every rule) for the pawn right now, then the agenda dump. |
 | Conversations: Seed colony rumors | Rule 6 on any pawn, from Core's event ledger, with the once-per-visit flag cleared. |
+| Conversations: Pregenerate top point | Matches the pawn's strongest point to a listener, logs the built beat, and queues one background generation (result lands async). |
+| Conversations: Dump point pool | Every pooled point conversation with its lines, plus how many are in flight. |
 | Force serve / propagate *(steps 4–5)* | Fire a point to the nearest valid listener and show the derived rumor. |
 
 ## Build order
 
 1. **Data model** — point, agenda comp, injection, scribe. *Landed.*
 2. **Formation** — rules 1–6 and 8 on a cadence; `ConversationLinkDef` + authored bank. *Built; in-game validation pending.*
-3. **Pregeneration** — point → beat → pooled conversation.
+3. **Pregeneration** — point → beat → pooled conversation. *Built; in-game validation pending.*
 4. **Trigger swap** — the psychology / proximity scan replaces the vanilla hook.
 5. **Propagation** — rule 7, the rumor mill.
 6. **Cliques** — exchange counts per pair (follow-on).

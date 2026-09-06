@@ -127,6 +127,12 @@ namespace RimSynapse.Conversations
             lastFormationSweepTick = now;
             formationCohort = (formationCohort + 1) & 3;
 
+            // Pregeneration (#60 step 3) rides the same sweep: after a pawn forms, their strongest points get
+            // matched to a nearby listener and ONE background call each, within a small per-sweep budget so
+            // the LLM queue never sees a burst.
+            var wc = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            int pregenBudget = MaxPointPregenPerSweep;
+
             var all = map.mapPawns.AllPawnsSpawned;
             for (int i = 0; i < all.Count; i++)
             {
@@ -136,8 +142,12 @@ namespace RimSynapse.Conversations
                 if (RimSynapse.Conversations.LinkBank.RoleOf(pawn) == RimSynapse.Conversations.LinkRole.None
                     && !RimSynapse.SynapseCoreProviders.MayConverse(pawn)) continue;
                 RimSynapse.Conversations.Generation.AgendaFormation.FormFor(pawn, now, all);
+                if (pregenBudget > 0)
+                    pregenBudget -= RimSynapse.Conversations.Generation.AgendaPregeneration.TryPregenerateFor(pawn, now, all, wc, pregenBudget);
             }
         }
+
+        private const int MaxPointPregenPerSweep = 2;
 
         // ── Outsider barks (#52) ─────────────────────────────────────────
         // Pawns the colony has no relationship with never enter the LLM path; instead one of them occasionally

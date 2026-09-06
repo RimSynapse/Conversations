@@ -125,7 +125,10 @@ namespace RimSynapse.Conversations
             string k = PairKey(idA, idB);
             int n = 0;
             foreach (var p in preGenPool)
+            {
+                if (!string.IsNullOrEmpty(p.pointId)) continue; // point pre-gens have their own bound (#60)
                 if (PairKey(p.initiatorId, p.recipientId) == k) n++;
+            }
             return n;
         }
 
@@ -165,6 +168,7 @@ namespace RimSynapse.Conversations
             {
                 var p = preGenPool[i];
                 if (!string.IsNullOrEmpty(p.eventKey)) continue;   // event pre-gens fire only via the event path (#35)
+                if (!string.IsNullOrEmpty(p.pointId)) continue;    // point pre-gens fire only via the agenda serve path (#60)
                 if (PairKey(p.initiatorId, p.recipientId) != k) continue;
                 if (IsExpiredOrStale(p, a, b, nowAbs, nowTick)) { preGenPool.RemoveAt(i); continue; }
                 preGenPool.RemoveAt(i);
@@ -216,7 +220,74 @@ namespace RimSynapse.Conversations
             return null;
         }
 
-        /// <summary>Drop expired (TTL) and stale (significant-event) pre-gens, plus any whose pawns are gone.</summary>
+        // ── Point-keyed pre-gens (#60 step 3) ────────────────────────────
+        // A pooled conversation for a talking point is keyed (speaker, listener, pointId) — pair state for
+        // one thing the speaker wants to say to one listener. Same pool (TTL / staleness apply) under its
+        // own total bound; popped only by the agenda serve path (step 4). In-flight requests are guarded
+        // so a point is never generated twice for the same listener; the guard self-heals on a timeout
+        // because Core's client can drop a request without calling back.
+        public const int MaxPointPreGensTotal = 32;
+        public const int PendingTimeoutTicks = 7500;
+        private readonly Dictionary<string, int> pendingPointGen = new Dictionary<string, int>(); // not scribed — in-flight dies with the session
+
+        public int PointPreGenCount => preGenPool.Count(p => !string.IsNullOrEmpty(p.pointId));
+        public bool CanPoolMorePoints => PointPreGenCount < MaxPointPreGensTotal;
+        public int PendingPointGenCount => pendingPointGen.Count;
+
+        public bool HasPooledPoint(string speakerId, string listenerId, string pointId)
+        {
+            if (string.IsNullOrEmpty(pointId)) return false;
+            foreach (var p in preGenPool)
+                if (p.pointId == pointId && p.initiatorId == speakerId && p.recipientId == listenerId) return true;
+            return false;
+        }
+
+        public void AddPointPreGen(PreGeneratedConversation conv)
+        {
+            if (conv == null || string.IsNullOrEmpty(conv.pointId) || string.IsNullOrEmpty(conv.initiatorId) || string.IsNullOrEmpty(conv.recipientId)) return;
+            if (!CanPoolMorePoints) return;
+            if (HasPooledPoint(conv.initiatorId, conv.recipientId, conv.pointId)) return;
+            preGenPool.Add(conv);
+        }
+
+        /// <summary>Take the pooled conversation for this exact (speaker, listener, point), consuming it.</summary>
+        public PreGeneratedConversation PopPooledPoint(string speakerId, string listenerId, string pointId)
+        {
+            if (string.IsNullOrEmpty(pointId)) return null;
+            for (int i = preGenPool.Count - 1; i >= 0; i--)
+            {
+                var p = preGenPool[i];
+                if (p.pointId != pointId || p.initiatorId != speakerId || p.recipientId != listenerId) continue;
+                preGenPool.RemoveAt(i);
+                return p;
+            }
+            return null;
+        }
+
+        public IEnumerable<PreGeneratedConversation> PooledPoints()
+            => preGenPool.Where(p => !string.IsNullOrEmpty(p.pointId));
+
+        /// <summary>Claim an in-flight slot; false if one is already pending and younger than the timeout.</summary>
+        public bool TryMarkPending(string key, int nowTick)
+        {
+            if (pendingPointGen.TryGetValue(key, out int since) && nowTick - since < PendingTimeoutTicks) return false;
+            pendingPointGen[key] = nowTick;
+            return true;
+        }
+
+        public void ClearPending(string key) => pendingPointGen.Remove(key);
+
+        /// <summary>A point pre-gen is dead once its point left the speaker's agenda (decayed / consumed) or
+        /// the listener has since been told.</summary>
+        private static bool PointIsGone(PreGeneratedConversation p, Pawn speaker)
+        {
+            var agenda = speaker?.TryGetComp<RimSynapse.Conversations.Comps.SynapseConversationAgendaComp>();
+            var point = agenda?.Find(p.pointId);
+            return point == null || point.Told(p.recipientId);
+        }
+
+        /// <summary>Drop expired (TTL) and stale (significant-event) pre-gens, plus any whose pawns are gone
+        /// or whose talking point no longer exists.</summary>
         public void PrunePool(long nowAbs, int nowTick)
         {
             for (int i = preGenPool.Count - 1; i >= 0; i--)
@@ -224,14 +295,15 @@ namespace RimSynapse.Conversations
                 var p = preGenPool[i];
                 Pawn a = PawnFromId(p.initiatorId);
                 Pawn b = PawnFromId(p.recipientId);
-                if (a == null || b == null || IsExpiredOrStale(p, a, b, nowAbs, nowTick))
+                if (a == null || b == null || IsExpiredOrStale(p, a, b, nowAbs, nowTick)
+                    || (!string.IsNullOrEmpty(p.pointId) && PointIsGone(p, a)))
                     preGenPool.RemoveAt(i);
             }
         }
 
         private static bool IsExpiredOrStale(PreGeneratedConversation p, Pawn a, Pawn b, long nowAbs, int nowTick)
         {
-            int ttl = TopicIsDeep(p.topicDefName) ? PreGenDeepTtlTicks : PreGenTtlTicks;
+            int ttl = (p.isDeep || TopicIsDeep(p.topicDefName)) ? PreGenDeepTtlTicks : PreGenTtlTicks;
             if (nowTick - p.generatedAtTick > ttl) return true;
             // Significant-event invalidation: either participant gained a Death/Grief/Betrayal/TraitShift
             // memory after this pre-gen was written.

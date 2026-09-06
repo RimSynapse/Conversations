@@ -151,7 +151,7 @@ namespace RimSynapse.Conversations.Patches
         /// consumer — should yield (Conversations#38)? A backlog in the queue or an active Core throttle
         /// both mean the model can't keep up; a bigger colony, a slower provider and higher game speed all
         /// surface here as a deeper queue, so we gate on real load rather than on speed.</summary>
-        private static bool ShouldShedForLoad()
+        internal static bool ShouldShedForLoad()
         {
             var s = RimSynapseConversationsMod.Settings;
             if (s == null || !s.adaptiveConversationShedding) return false;
@@ -210,7 +210,7 @@ namespace RimSynapse.Conversations.Patches
 
         // One call yields a whole alternating back-and-forth (the LLM sizes it to the scenario); the
         // first line lands now and the rest drip-feed while the pawns stay together (Conversations#31).
-        private const int MaxExchangeLines = 12;
+        internal const int MaxExchangeLines = 12;
 
         private static void PerformSequentialDialogueGeneration(Pawn initiator, Pawn recipient, InteractionDef intDef, Action<LlmConversationResponse, Generation.ConversationBeat, bool> onComplete, Generation.ConversationBeat presetBeat = null)
         {
@@ -399,12 +399,12 @@ namespace RimSynapse.Conversations.Patches
             return null;
         }
 
-        private class SpeakerLine { public string speaker; public string text; }
+        internal class SpeakerLine { public string speaker; public string text; }
 
         /// <summary>Parse the per-line-speaker schema (#40): {"lines":[{"speaker","text"}, ...]}. Tolerates
         /// bare-string lines (old positional schema — speaker null, resolved by position) so a model that
         /// ignores the schema still yields a usable exchange.</summary>
-        private static List<SpeakerLine> ParseSpeakerLines(string content)
+        internal static List<SpeakerLine> ParseSpeakerLines(string content)
         {
             if (string.IsNullOrEmpty(content)) return null;
             var outLines = new List<SpeakerLine>();
@@ -440,7 +440,7 @@ namespace RimSynapse.Conversations.Patches
 
         /// <summary>Map a tagged speaker name to one of the roster pawns (exact short-name, then fuzzy
         /// contains for titles/last-names a small model may add), or fall back to positional alternation.</summary>
-        private static Pawn ResolveSpeaker(string name, Pawn[] roster, int positionalIndex)
+        internal static Pawn ResolveSpeaker(string name, Pawn[] roster, int positionalIndex)
         {
             if (!string.IsNullOrWhiteSpace(name))
             {

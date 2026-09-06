@@ -148,6 +148,53 @@ namespace RimSynapse.Conversations.Tests
                 Assert.True(!string.IsNullOrEmpty(line), "a picked opener is a real line");
                 return $"sample=\"{line}\"";
             });
+
+            // Point → beat (step 3): kind / topic key / tone are derived purely from the point.
+            yield return new SynapseTestCase("Conversations_BeatKeysFromPoint", () =>
+            {
+                var mem = new TalkingPoint { subjectMemId = "123_ab", subjectSummary = "s", register = PointRegister.DeepTalk };
+                Assert.Equal("memory", AgendaBeatBuilder.Kind(mem), "a bare memId is a memory point");
+                Assert.Equal("event:123_ab", AgendaBeatBuilder.TopicKeyFor(mem), "memory points keep the resolver's event key scheme");
+                Assert.Equal(BeatTone.Heartfelt, AgendaBeatBuilder.ToneFor(mem.register), "deep talk is heartfelt");
+
+                var link = new TalkingPoint { subjectMemId = "link:RimSynapse_Link_Visitor_Resident:Thing_Human1", subjectSummary = "What's new around here?" };
+                Assert.Equal("link", AgendaBeatBuilder.Kind(link), "a prefixed key yields its prefix");
+                Assert.Equal(link.subjectMemId, AgendaBeatBuilder.TopicKeyFor(link), "synthetic points already carry a prefixed key");
+                Assert.Equal(BeatTone.Casual, AgendaBeatBuilder.ToneFor(link.register), "chit-chat is casual");
+                Assert.Equal("rumor", AgendaBeatBuilder.Kind(new TalkingPoint { subjectMemId = "rumor:12:ab" }), "rumor prefix");
+                Assert.Equal("memory", AgendaBeatBuilder.Kind(new TalkingPoint()), "no key defaults to memory");
+                return "beat keys ok";
+            });
+
+            // Point-keyed pool (step 3): keyed by (speaker, listener, point), bounded, popped exactly once,
+            // with a self-healing in-flight guard.
+            yield return new SynapseTestCase("Conversations_PointPoolAndPendingGuard", () =>
+            {
+                var wc = new SynapseConversationsWorldComponent(Find.World);
+                PreGeneratedConversation Conv(string a, string b, string pt) => new PreGeneratedConversation { initiatorId = a, recipientId = b, pointId = pt, initiatorStatement = "x", recipientResponse = "y", generatedAtTick = 0 };
+
+                wc.AddPointPreGen(Conv("A", "B", "p1"));
+                wc.AddPointPreGen(Conv("A", "C", "p1"));
+                wc.AddPointPreGen(Conv("A", "B", "p1")); // duplicate
+                Assert.Equal(2, wc.PointPreGenCount, "same point to two listeners is two entries; a duplicate is not");
+                Assert.True(wc.HasPooledPoint("A", "B", "p1") && wc.HasPooledPoint("A", "C", "p1"), "both keys present");
+                Assert.False(wc.HasPooledPoint("B", "A", "p1"), "the key is directional");
+                Assert.False(wc.HasPooledPoint("A", "B", null), "null point never matches");
+
+                var popped = wc.PopPooledPoint("A", "B", "p1");
+                Assert.True(popped != null && popped.recipientId == "B", "pop returns the exact entry");
+                Assert.True(wc.PopPooledPoint("A", "B", "p1") == null, "an entry pops exactly once");
+                Assert.Equal(1, wc.PointPreGenCount, "the other listener's entry remains");
+                Assert.Equal(0, wc.PoolCountForPair("A", "C"), "point entries do not count against the legacy per-pair cap");
+
+                string key = AgendaPregeneration.PoolKey("A", "B", "p2");
+                Assert.True(wc.TryMarkPending(key, 100), "first claim succeeds");
+                Assert.False(wc.TryMarkPending(key, 200), "a live claim blocks a second");
+                wc.ClearPending(key);
+                Assert.True(wc.TryMarkPending(key, 300), "cleared claim can be retaken");
+                Assert.True(wc.TryMarkPending(key, 300 + SynapseConversationsWorldComponent.PendingTimeoutTicks), "a stale claim self-heals after the timeout");
+                return $"pool={wc.PointPreGenCount} pending={wc.PendingPointGenCount}";
+            });
         }
     }
 }
