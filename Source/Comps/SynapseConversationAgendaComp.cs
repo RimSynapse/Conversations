@@ -24,10 +24,10 @@ namespace RimSynapse.Conversations.Comps
         public List<string> retiredSubjects = new List<string>();
         public const int MaxRetired = 16;
 
-        /// <summary>Bond-shift baselines (rule 4): last-seen Psychology trust/warmth per other pawn (their
-        /// unique load id, as the social network keys them).</summary>
+        /// <summary>Bond-shift baselines (rule 4): last-seen Psychology trust per other pawn (their unique
+        /// load id, as the social network keys them). Trust is the axis present on Psychology 0.10; the
+        /// warmth baseline returns alongside it when the relationship-compass axis (#72) lands in 0.10.</summary>
         public Dictionary<string, float> bondTrust = new Dictionary<string, float>();
-        public Dictionary<string, float> bondWarmth = new Dictionary<string, float>();
 
         /// <summary>Colony rumors (rule 6) are seeded once per visit.</summary>
         public bool rumorsSeeded;
@@ -105,7 +105,6 @@ namespace RimSynapse.Conversations.Comps
             Scribe_Collections.Look(ref points, "points", LookMode.Deep);
             Scribe_Collections.Look(ref retiredSubjects, "retiredSubjects", LookMode.Value);
             Scribe_Collections.Look(ref bondTrust, "bondTrust", LookMode.Value, LookMode.Value);
-            Scribe_Collections.Look(ref bondWarmth, "bondWarmth", LookMode.Value, LookMode.Value);
             Scribe_Values.Look(ref rumorsSeeded, "rumorsSeeded", false);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
@@ -113,7 +112,6 @@ namespace RimSynapse.Conversations.Comps
                 points.RemoveAll(p => p == null);
                 if (retiredSubjects == null) retiredSubjects = new List<string>();
                 if (bondTrust == null) bondTrust = new Dictionary<string, float>();
-                if (bondWarmth == null) bondWarmth = new Dictionary<string, float>();
             }
         }
     }

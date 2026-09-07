@@ -33,7 +33,7 @@ namespace RimSynapse.Conversations.Generation
         public const float LinkSalience = 0.15f;
         public const float RumorSalience = 0.35f;
         public const float AmbientSalience = 0.08f;
-        public const float BondShiftThreshold = 15f;     // |Δtrust| or |Δwarmth| to notice
+        public const float BondShiftThreshold = 15f;     // |Δtrust| to notice (warmth axis is #72, not in 0.10 yet)
         public const float BondShiftDeep = 30f;
 
         // ── Decay (§3) ────────────────────────────────────────────────────────────────────────────
@@ -240,8 +240,11 @@ namespace RimSynapse.Conversations.Generation
         // Rule 4: Bond shift (Psychology socialNetwork)
         // ═════════════════════════════════════════════════════════════════════════════════════════
 
-        /// <summary>A notable trust/warmth change toward a third pawn since the last baseline → a point about
-        /// them, audience-restricted so it is never said TO them. First sighting only records the baseline.</summary>
+        /// <summary>A notable TRUST change toward a third pawn since the last baseline → a point about them,
+        /// audience-restricted so it is never said TO them. First sighting only records the baseline.
+        /// Keyed on trust alone: it's the "do they rely on each other" axis and is present on Psychology 0.10.
+        /// (The warmth "do they like each other" axis is the relationship-compass work #72, not yet in 0.10 —
+        /// when it lands, add |Δwarmth| back here and restore the warmed-to/cooled-on directions.)</summary>
         public static void FormBondShifts(Pawn pawn, SynapseConversationAgendaComp agenda, int nowTick, List<string> trace)
         {
             var psych = pawn.TryGetComp<RimSynapse.Psychology.Comps.SynapsePawnComp>();
@@ -253,29 +256,25 @@ namespace RimSynapse.Conversations.Generation
                 var rec = kv.Value;
                 if (rec == null || string.IsNullOrEmpty(otherId)) continue;
 
-                if (!agenda.bondTrust.TryGetValue(otherId, out float baseTrust) || !agenda.bondWarmth.TryGetValue(otherId, out float baseWarmth))
+                if (!agenda.bondTrust.TryGetValue(otherId, out float baseTrust))
                 {
                     agenda.bondTrust[otherId] = rec.trust;
-                    agenda.bondWarmth[otherId] = rec.warmth;
                     continue;
                 }
 
                 float dT = rec.trust - baseTrust;
-                float dW = rec.warmth - baseWarmth;
-                float magnitude = Mathf.Max(Mathf.Abs(dT), Mathf.Abs(dW));
+                float magnitude = Mathf.Abs(dT);
                 if (magnitude < BondShiftThreshold) continue;
 
                 // Re-baseline whether or not the point survives the cap, so one shift yields one point.
                 agenda.bondTrust[otherId] = rec.trust;
-                agenda.bondWarmth[otherId] = rec.warmth;
 
                 var other = ResolveOnMap(pawn.Map, otherId);
                 if (other == null) continue; // can't scope the audience → don't risk saying it to their face
                 string key = "bond:" + other.ThingID;
                 if (Known(agenda, key)) continue;
 
-                bool trustLed = Mathf.Abs(dT) >= Mathf.Abs(dW);
-                string direction = trustLed ? (dT > 0 ? "come to rely on" : "stopped trusting") : (dW > 0 ? "warmed to" : "cooled on");
+                string direction = dT > 0 ? "come to rely on" : "stopped trusting";
                 var point = new TalkingPoint
                 {
                     subjectMemId = key,
