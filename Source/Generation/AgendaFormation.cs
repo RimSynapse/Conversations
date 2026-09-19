@@ -33,6 +33,12 @@ namespace RimSynapse.Conversations.Generation
         public const float LinkSalience = 0.15f;
         public const float RumorSalience = 0.35f;
         public const float AmbientSalience = 0.08f;
+        public const float CaregivingSalience = 0.4f;    // an act of care is worth a word, and worth thanks
+
+        /// <summary>Core memoryType written by the caregiving hooks (#64) — a caring act (a tend, later a feed
+        /// or a lesson) that both parties may bring up. Its own type, not EventReflection, so it carries its
+        /// own warm register and audience (Anyone — the cared-for pawn may thank the carer to their face).</summary>
+        public const string CaregivingMemoryType = "Caregiving";
         public const float BondShiftThreshold = 15f;     // |Δtrust| to notice (warmth axis is #72, not in 0.10 yet)
         public const float BondShiftDeep = 30f;
 
@@ -79,6 +85,7 @@ namespace RimSynapse.Conversations.Generation
             if (conversant && core != null)
             {
                 FormFromMemories(core, agenda, nowTick, nowAbs, mood, pawn, trace);
+                FormCaregiving(core, agenda, nowTick, nowAbs, trace);
                 FormActivity(core, agenda, nowTick, trace);
             }
             if (conversant) FormBondShifts(pawn, agenda, nowTick, trace);
@@ -197,6 +204,40 @@ namespace RimSynapse.Conversations.Generation
         {
             m.EnsureMemId();
             return m.memId;
+        }
+
+        // ═════════════════════════════════════════════════════════════════════════════════════════
+        // Rule 2b: Caregiving (#64 — acts of care become topics)
+        // ═════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>An act of care recorded on this pawn (a tend; later a feed or a lesson) becomes a warm
+        /// talking point. Unlike a memory about one pawn (which is scoped away from that pawn), a caregiving
+        /// point is audience <see cref="AudienceKind.Anyone"/> ON PURPOSE — the cared-for pawn thanking the
+        /// carer to their face is the whole point, and with multiway (#40) it can land in a shared-room
+        /// conversation. One per pass: the freshest untold act. Deep when the care was serious (weight high).</summary>
+        public static void FormCaregiving(SynapseCorePawnComp core, SynapseConversationAgendaComp agenda,
+            int nowTick, long nowAbs, List<string> trace)
+        {
+            if (core?.memories == null || core.memories.Count == 0) return;
+
+            var care = core.memories
+                .Where(m => m != null && m.memoryType == CaregivingMemoryType && !string.IsNullOrEmpty(m.summary))
+                .Where(m => m.isLongTerm || nowAbs - m.absTick <= RecentEventTicks)
+                .Where(m => !Known(agenda, MemId(m)))
+                .OrderByDescending(m => nowAbs - m.absTick < FreshEventTicks ? 1 : 0).ThenByDescending(m => Base(m))
+                .FirstOrDefault();
+            if (care == null) return;
+
+            var point = new TalkingPoint
+            {
+                subjectMemId = MemId(care),
+                subjectSummary = care.summary,
+                salience = Mathf.Clamp(Mathf.Max(CaregivingSalience, Base(care)), 0.2f, 0.9f),
+                register = Base(care) >= DeepThreshold ? PointRegister.DeepTalk : PointRegister.ChitChat,
+                audience = AudienceKind.Anyone,   // deliberately unrestricted — you CAN thank your carer
+                formedTick = nowTick
+            };
+            if (agenda.Add(point)) trace?.Add($"caregiving \"{Short(care.summary)}\" {point.register}");
         }
 
         // ═════════════════════════════════════════════════════════════════════════════════════════

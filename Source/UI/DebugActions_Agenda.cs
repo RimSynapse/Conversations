@@ -300,5 +300,41 @@ namespace RimSynapse.Conversations.UI
                 RimSynapse.SynapseLogger.Info(Cat, $"    {SynapseConversationsWorldComponent.PawnFromId(m.sender)?.LabelShort ?? m.sender}: {m.message}");
             RimSynapse.SynapseLogger.Info(Cat, $"  VERDICT: {(merged && target.participantIds.Count == 3 && senders.Count == 3 ? "PASS — one record, three participants, three senders" : "see co-present gate above")}");
         }
+
+        /// <summary>Caregiving topic (#64): record a caring act from the acting pawn onto their nearest
+        /// colonist via the real hook path, run formation, and confirm a Caregiving point appears on the
+        /// cared-for pawn's agenda — audience Anyone (they may thank the carer). No LLM, no live tend needed.</summary>
+        [DebugAction("RimSynapse", "Conversations: Force caregiving topic + dump (Log)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceCaregivingTopic(Pawn p)
+        {
+            if (p == null || p.Map == null) return;
+            var cared = p.Map.mapPawns.AllPawnsSpawned
+                .Where(o => o != p && o.RaceProps.Humanlike && !o.Dead)
+                .OrderBy(o => o.Position.DistanceToSquared(p.Position))
+                .FirstOrDefault();
+            if (cared == null) { RimSynapse.SynapseLogger.Info(Cat, "[RimSynapse] No other humanlike near the acting pawn."); return; }
+
+            // Drive the real hook so this validates the memory phrasing + both-sides write, not a shortcut.
+            Patches.CaregivingHooks.Record(
+                carer: p, cared: cared,
+                carerLine: $"patching {cared.LabelShort} up when they were in a bad way",
+                caredLine: $"how {p.LabelShort} patched me up when I was in a bad way",
+                actTag: "Tend", serious: true);
+
+            int now = Find.TickManager.TicksGame;
+            long nowAbs = Find.TickManager.TicksAbs;
+            var caredCore = cared.TryGetComp<SynapseCorePawnComp>();
+            var caredAgenda = cared.TryGetComp<SynapseConversationAgendaComp>();
+            if (caredCore == null || caredAgenda == null) { RimSynapse.SynapseLogger.Info(Cat, "[RimSynapse] cared-for pawn is missing a comp."); return; }
+
+            Generation.AgendaFormation.FormCaregiving(caredCore, caredAgenda, now, nowAbs, null);
+            var pt = caredAgenda.points.FirstOrDefault(x => x.subjectMemId != null && x.subjectSummary != null && x.subjectSummary.Contains("patched me up"));
+
+            RimSynapse.SynapseLogger.Info(Cat, $"--- Caregiving topic: {p.LabelShort} -> {cared.LabelShort} ---");
+            if (pt == null) { RimSynapse.SynapseLogger.Info(Cat, "  FAIL — no caregiving point formed on the cared-for pawn."); return; }
+            RimSynapse.SynapseLogger.Info(Cat, $"  point: \"{pt.subjectSummary}\" register={pt.register} salience={pt.salience:F2} audience={pt.audience}");
+            bool pass = pt.audience == AudienceKind.Anyone && pt.register == PointRegister.DeepTalk;
+            RimSynapse.SynapseLogger.Info(Cat, $"  VERDICT: {(pass ? "PASS — serious care forms a deep, thankable (audience-Anyone) point" : "formed but check register/audience above")}");
+        }
     }
 }

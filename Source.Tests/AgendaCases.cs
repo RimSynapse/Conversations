@@ -114,6 +114,34 @@ namespace RimSynapse.Conversations.Tests
                 return $"trace=[{string.Join("; ", trace)}]";
             });
 
+            // Caregiving rule (#64): a Caregiving memory becomes a warm, audience-ANYONE point (you may
+            // thank your carer), deep only when the care was serious. A non-caregiving memory is ignored here.
+            yield return new SynapseTestCase("Conversations_FormationCaregiving", () =>
+            {
+                long nowAbs = Find.TickManager != null ? Find.TickManager.TicksAbs : 1000000L;
+                var core = new SynapseCorePawnComp();
+                core.AddMemory(new WeightedMemory { summary = "how Vale patched me up when I was in a bad way", memoryType = "Caregiving", weight = 0.7f, baseWeight = 0.7f, absTick = nowAbs - 500, subjectPawnIds = new List<string> { "VALE" }, tags = new List<string> { "Caregiving", "Tend", "cared-for" } });
+                core.AddMemory(new WeightedMemory { summary = "tending Rook's scratches", memoryType = "Caregiving", weight = 0.35f, baseWeight = 0.35f, absTick = nowAbs - 400, subjectPawnIds = new List<string> { "ROOK" }, tags = new List<string> { "Caregiving", "Tend", "carer" } });
+                core.AddMemory(new WeightedMemory { summary = "an ordinary chat", memoryType = "social", weight = 0.5f, baseWeight = 0.5f, absTick = nowAbs - 300 });
+
+                var agenda = new SynapseConversationAgendaComp();
+                var trace = new List<string>();
+                AgendaFormation.FormCaregiving(core, agenda, 100, nowAbs, trace);
+
+                var pt = agenda.points.FirstOrDefault(p => p.subjectSummary.Contains("patched me up"));
+                Assert.True(pt != null, "a caregiving memory forms a point");
+                Assert.Equal(AudienceKind.Anyone, pt.audience, "caregiving is audience-Anyone — you can thank your carer");
+                Assert.Equal(PointRegister.DeepTalk, pt.register, "serious care (weight >= 0.6) is deep talk");
+                Assert.False(agenda.points.Any(p => p.subjectSummary.Contains("ordinary chat")), "a non-caregiving memory is not formed by this rule");
+
+                // Only one per pass; a second pass does not duplicate the same memory.
+                int before = agenda.Count;
+                AgendaFormation.FormCaregiving(core, agenda, 200, nowAbs, null);
+                Assert.True(agenda.points.Count(p => p.subjectSummary.Contains("patched me up")) == 1, "no duplicate on a second pass");
+                Assert.True(agenda.Count >= before, "a second pass never removes points");
+                return $"trace=[{string.Join("; ", trace)}]";
+            });
+
             // Decay & prune (§3): weak, spent and stale points go, and their subjects are retired.
             yield return new SynapseTestCase("Conversations_AgendaDecayAndRetire", () =>
             {
