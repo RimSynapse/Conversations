@@ -33,8 +33,8 @@ namespace RimSynapse.Conversations.Generation
         public BeatFraming framing = BeatFraming.Shared;
         public bool isDeep;
 
-        /// <summary>Label for recent-topic tracking / metrics (a ChatTopicDef defName, "event:&lt;id&gt;", or a
-        /// synthetic tag like "job"/"need"). Never shown to the player.</summary>
+        /// <summary>Label for recent-topic tracking / metrics: "event:&lt;id&gt;", "burden", "day", "env:&lt;type&gt;",
+        /// "warden:&lt;mode&gt;". Never shown to the player.</summary>
         public string topicKey;
 
         public bool IsCoercive => tone == BeatTone.Coercive;

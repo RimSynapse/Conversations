@@ -207,7 +207,7 @@ namespace RimSynapse.Conversations.Warden
 
             // Reuse the pair's conversation record so warden exchanges show in the Dialogue History too.
             PawnConversation conversation = worldComp.pawnConversations.FirstOrDefault(c =>
-                (c.pawnAId == idW && c.pawnBId == idP) || (c.pawnAId == idP && c.pawnBId == idW));
+                c.Involves(idW) && c.Involves(idP));
             if (conversation == null)
             {
                 conversation = new PawnConversation(idW, idP, nowTick);

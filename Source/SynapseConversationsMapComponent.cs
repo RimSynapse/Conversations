@@ -9,9 +9,6 @@ namespace RimSynapse.Conversations
 {
     public class SynapseConversationsMapComponent : MapComponent
     {
-        private Dictionary<string, bool> wasInDarkness = new Dictionary<string, bool>();
-        private Dictionary<string, bool> wasInFreezer = new Dictionary<string, bool>();
-        private Dictionary<string, int> lastInteractionTick = new Dictionary<string, int>();
 
         // Drip-feed playback (Conversations#31): a conversation is generated whole in one LLM call; the
         // first line lands immediately and the remaining lines are played out here, one every
@@ -55,10 +52,12 @@ namespace RimSynapse.Conversations
             {
                 var pb = activePlaybacks[i];
 
-                // End the exchange if a participant is gone or they've drifted out of conversational range.
+                // End the exchange if a participant is gone or has stopped being co-present (#40): once a
+                // pawn leaves the room (or, outdoors, drifts out of range) the conversation ends there rather
+                // than "carrying" as they walk off — the legibility fix for lines trailing a transiting pawn.
                 if (pb.initiator == null || pb.recipient == null ||
                     !pb.initiator.Spawned || !pb.recipient.Spawned || pb.initiator.Dead || pb.recipient.Dead ||
-                    pb.initiator.Position.DistanceTo(pb.recipient.Position) > MaxConversationRangeTiles)
+                    !Generation.ConversationPresence.CoPresent(pb.initiator, pb.recipient))
                 {
                     activePlaybacks.RemoveAt(i);
                     continue;
@@ -93,148 +92,119 @@ namespace RimSynapse.Conversations
             // Drip-feed runs on its own line cadence, independent of the trigger scan below.
             ProcessConversationPlaybacks();
 
-            // Environmental-trigger scan. Previously gated on a single "TicksGame % 250 == 0"
-            // that evaluated every eligible colonist on the same tick — a synchronized batch
-            // spike (0.8 perf pass). Now each colonist is still checked once per 250 ticks but
-            // hash-staggered by pawn id, and we iterate FreeColonistsSpawned (player humanlikes
-            // only) instead of every spawned pawn (animals/enemies included) filtered down.
-            var colonists = map.mapPawns.FreeColonistsSpawned;
-            for (int i = 0; i < colonists.Count; i++)
-            {
-                var pawn = colonists[i];
-                if (pawn == null || pawn.Downed) continue;
-                if (!pawn.IsHashIntervalTick(250)) continue;
+            // The trigger (#60 step 4): serve pregenerated agenda conversations to pairs in range — replaces the
+            // vanilla TryInteractWith hook and the old environmental (darkness/freezer) driver.
+            ProcessAgendaTrigger();
 
-                EvaluatePawnEnvironment(pawn);
+            // Outsiders (raiders, traders, visitors) get cheap authored barks (#52), on their own slow cadence.
+            ProcessOutsiderBarks();
+
+            // Talking-point formation (#60 Phase 1 §2) — the psychology hook, on its own cadence.
+            ProcessAgendaFormation();
+        }
+
+        // ── Agenda formation (#60) ───────────────────────────────────────
+        // One sweep every FormationSweepInterval ticks over the spawned pawns, forming for a quarter of them
+        // (staggered by thingIDNumber) — so each pawn forms roughly once per in-game hour and no tick ever
+        // evaluates everyone at once. Residents run the memory/bond/activity rules; visitors, traders and
+        // guests get link openers and colony rumors; raiders and prisoners are skipped (bark / warden paths).
+        private const int FormationSweepInterval = 625;
+        private int lastFormationSweepTick = -1;
+        private int formationCohort;
+
+        private void ProcessAgendaFormation()
+        {
+            int now = Find.TickManager.TicksGame;
+            if (lastFormationSweepTick >= 0 && now - lastFormationSweepTick < FormationSweepInterval) return;
+            lastFormationSweepTick = now;
+            formationCohort = (formationCohort + 1) & 3;
+
+            // Pregeneration (#60 step 3) rides the same sweep: after a pawn forms, their strongest points get
+            // matched to a nearby listener and ONE background call each, within a small per-sweep budget so
+            // the LLM queue never sees a burst.
+            var wc = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            int pregenBudget = MaxPointPregenPerSweep;
+
+            var all = map.mapPawns.AllPawnsSpawned;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var pawn = all[i];
+                if (pawn == null || pawn.Dead || pawn.RaceProps == null || !pawn.RaceProps.Humanlike) continue;
+                if ((pawn.thingIDNumber & 3) != formationCohort) continue;
+                if (RimSynapse.Conversations.LinkBank.RoleOf(pawn) == RimSynapse.Conversations.LinkRole.None
+                    && !RimSynapse.SynapseCoreProviders.MayConverse(pawn)) continue;
+                RimSynapse.Conversations.Generation.AgendaFormation.FormFor(pawn, now, all);
+                if (pregenBudget > 0)
+                    pregenBudget -= RimSynapse.Conversations.Generation.AgendaPregeneration.TryPregenerateFor(pawn, now, all, wc, pregenBudget);
             }
         }
 
-        /// <summary>
-        /// One colonist's environmental-trigger check (darkness/freezer transitions). Split out of
-        /// the tick loop so the "Force Environmental Scan" debug action can exercise it headlessly.
-        /// </summary>
-        private void EvaluatePawnEnvironment(Pawn pawn)
+        private const int MaxPointPregenPerSweep = 2;
+
+        // ── Outsider barks (#52) ─────────────────────────────────────────
+        // Pawns the colony has no relationship with never enter the LLM path; instead one of them occasionally
+        // mutters an authored line. Cost control: the AllPawnsSpawned sweep runs ONCE per scan interval (not
+        // per tick, and only at 1x where bubbles render), and produces at most ONE bark — ambient, not a
+        // chorus. A per-pawn cooldown keeps the same raider from repeating. Reservoir pick avoids allocating.
+        private int lastOutsiderScanTick = -1;
+        private readonly Dictionary<int, int> lastOutsiderBarkTick = new Dictionary<int, int>();
+        private const int OutsiderScanInterval = 360;    // ~6s at 1x: how often a bark is considered
+        private const int OutsiderBarkCooldown = 5000;   // per pawn: ~2 in-game hours between its barks
+
+        private void ProcessOutsiderBarks()
         {
-            // Only check triggers if they are particularly talkative/outgoing
-            if (!IsTalkative(pawn)) return;
+            if (Find.TickManager.CurTimeSpeed != TimeSpeed.Normal) return; // bubbles only draw at 1x
+            int now = Find.TickManager.TicksGame;
+            if (lastOutsiderScanTick >= 0 && now - lastOutsiderScanTick < OutsiderScanInterval) return;
+            lastOutsiderScanTick = now;
 
-            string pId = pawn.ThingID;
-
-            // 1. Darkness transition check (moving from lit area to darkness < 0.2f glow)
-            bool inDarkness = map.glowGrid.GroundGlowAt(pawn.Position) < 0.2f;
-            wasInDarkness.TryGetValue(pId, out bool wasDark);
-            if (inDarkness && !wasDark)
+            Pawn pick = null;
+            int eligible = 0;
+            var all = map.mapPawns.AllPawnsSpawned;
+            for (int i = 0; i < all.Count; i++)
             {
-                TryTriggerEnvironmentalConversation(pawn, "darkness", "entering darkness and commenting on the dim lighting or shadows");
+                var pawn = all[i];
+                if (Generation.OutsiderLineBank.ResolveRole(pawn) == null) continue;
+                if (lastOutsiderBarkTick.TryGetValue(pawn.thingIDNumber, out int last) && now - last < OutsiderBarkCooldown) continue;
+                eligible++;
+                if (Rand.Range(0, eligible) == 0) pick = pawn; // reservoir sample → uniform, zero-alloc
             }
-            wasInDarkness[pId] = inDarkness;
+            if (pick == null) return;
 
-            // 2. Freezer transition check (moving from moderate area into temperature <= 0f)
-            bool inFreezer = pawn.Position.GetTemperature(map) <= 0f;
-            wasInFreezer.TryGetValue(pId, out bool wasCold);
-            if (inFreezer && !wasCold)
-            {
-                TryTriggerEnvironmentalConversation(pawn, "freezer", "walking into the freezing cold freezer and complaining about the chilling temperature or frozen food");
-            }
-            wasInFreezer[pId] = inFreezer;
+            string line = Generation.OutsiderLineBank.PickLine(pick);
+            if (string.IsNullOrEmpty(line)) return;
+            lastOutsiderBarkTick[pick.thingIDNumber] = now;
+            UI.SpeechBubbleManager.AddBubble(pick, null, line, 0, 4.5f);
         }
 
-        /// <summary>
-        /// Debug/validation hook: run the environmental-trigger scan for every spawned colonist
-        /// right now, bypassing the per-pawn hash-interval gate. Returns the number evaluated.
-        /// </summary>
-        public int ForceEnvironmentalScan()
+        // Run the environmental check over ONE cached colony list, hash-staggered. Iterating the three
+        // colony lists (colonists + prisoners + slaves, #41) in place keeps the per-tick cost the same
+        // shape as the 0.8 pass (#32): cached-list references, no copy, no per-tick allocation — just three
+        // lists instead of one. Quest lodgers and residents still take part as recipients and through the
+        // vanilla interaction-driven path; they don't drive the ambient scan. Returns the count evaluated.
+        // ── Agenda trigger (#60 step 4) ─────────────────────────────────
+        // The psychology/proximity scan that replaced the vanilla TryInteractWith hook: every ScanInterval
+        // ticks, serve at most one pooled point conversation on this map whose speaker and listener are in
+        // range, in a talking mood, and off the pair cooldown. No LLM call happens here — a miss just lets
+        // pregeneration catch up (and nudges it).
+        private int lastAgendaScanTick = -1;
+        private int agendaRotation;
+        private readonly Dictionary<string, int> lastServedTickByPair = new Dictionary<string, int>();
+
+        private void ProcessAgendaTrigger()
         {
-            if (Current.ProgramState != ProgramState.Playing) return 0;
-            int n = 0;
-            var colonists = map.mapPawns.FreeColonistsSpawned;
-            for (int i = 0; i < colonists.Count; i++)
-            {
-                var pawn = colonists[i];
-                if (pawn == null || pawn.Downed) continue;
-                EvaluatePawnEnvironment(pawn);
-                n++;
-            }
-            return n;
+            int now = Find.TickManager.TicksGame;
+            if (lastAgendaScanTick >= 0 && now - lastAgendaScanTick < Generation.AgendaTrigger.ScanInterval) return;
+            lastAgendaScanTick = now;
+            Generation.AgendaTrigger.Scan(map, this, now, lastServedTickByPair, ref agendaRotation);
         }
 
-        private bool IsTalkative(Pawn pawn)
+        /// <summary>Is this pawn mid-exchange (lines still dripping)? The trigger won't start another on them.</summary>
+        public bool IsInPlayback(Pawn p)
         {
-            // Social skill >= 8
-            if (pawn.skills != null && pawn.skills.GetSkill(SkillDefOf.Social).Level >= 8) return true;
-
-            // Outgoing vanilla traits (e.g. Kind)
-            if (pawn.story?.traits != null)
-            {
-                if (pawn.story.traits.HasTrait(TraitDefOf.Kind)) return true;
-            }
-
-            // High extraversion check in Psychology comp if present. Conversations cannot
-            // reference Psychology's assembly, so this stays reflection-based — but the type and
-            // FieldInfo are resolved ONCE and cached (previously re-reflected per pawn per scan).
-            EnsureExtraversionField();
-            if (_extraversionField != null)
-            {
-                var comps = pawn.AllComps;
-                for (int j = 0; j < comps.Count; j++)
-                {
-                    if (_synapsePawnCompType.IsInstanceOfType(comps[j]))
-                    {
-                        float val = (float)_extraversionField.GetValue(comps[j]);
-                        return val > 0.6f;
-                    }
-                }
-            }
-
+            for (int i = 0; i < activePlaybacks.Count; i++)
+                if (activePlaybacks[i].initiator == p || activePlaybacks[i].recipient == p) return true;
             return false;
-        }
-
-        // Cached reflection handles for Psychology's SynapsePawnComp.extraversion (soft, optional
-        // cross-mod read). Resolved once; if Psychology is absent both stay null and the check
-        // is skipped.
-        private static System.Type _synapsePawnCompType;
-        private static System.Reflection.FieldInfo _extraversionField;
-        private static bool _extraversionResolved;
-
-        private static void EnsureExtraversionField()
-        {
-            if (_extraversionResolved) return;
-            _extraversionResolved = true;
-            _synapsePawnCompType = GenTypes.GetTypeInAnyAssembly("RimSynapse.Psychology.Comps.SynapsePawnComp");
-            if (_synapsePawnCompType != null)
-            {
-                _extraversionField = _synapsePawnCompType.GetField("extraversion");
-            }
-        }
-
-        private void TryTriggerEnvironmentalConversation(Pawn initiator, string type, string description)
-        {
-            int currentTick = Find.TickManager.TicksGame;
-            string key = initiator.ThingID;
-
-            // Environmental comments are on a 10,000 tick cooldown (approx 4 hours) per initiator
-            if (lastInteractionTick.TryGetValue(key, out int lastTick) && (currentTick - lastTick < 10000))
-            {
-                return;
-            }
-
-            // Find a nearby listener to talk to within 5 cells
-            Pawn recipient = null;
-            foreach (var other in map.mapPawns.AllPawnsSpawned)
-            {
-                if (other == initiator || !other.RaceProps.Humanlike || other.Dead || other.Downed || other.Faction != Faction.OfPlayer) continue;
-                if (initiator.Position.DistanceTo(other.Position) <= 5f)
-                {
-                    recipient = other;
-                    break;
-                }
-            }
-
-            if (recipient != null)
-            {
-                lastInteractionTick[key] = currentTick;
-                Patch_Pawn_InteractionsTracker_TryInteractWith.TriggerEnvironmentalLlmDialogue(initiator, recipient, type, description);
-            }
         }
     }
 }

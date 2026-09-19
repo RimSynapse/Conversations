@@ -9,7 +9,7 @@ This page details the Pawn-to-Pawn Dialogue System and the game tools implemente
 When pawns attempt to socialize in-game, RimSynapse intercepts the interaction and routes it through our LLM prompt-generation pipeline:
 
 ### Dynamic Interception and Prompting
-*   **Harmony Hook:** Intercepts `Pawn_InteractionsTracker.TryInteractWith` to block vanilla text generation and run our AI dialogue model instead.
+*   **Trigger:** pawns talk when a talking point on their agenda has a pregenerated exchange ready for a listener in range — see [Motivated Dialogue](Motivated_Dialogue). The old Harmony hook on vanilla social interactions is gone (0.10).
 *   **Context Gathering:** The system inspects both the speaker and recipient, pulling active activities, mood percentages, personal traits, and MBTI or temperament traits from their psychology profiles.
 *   **Single-Sentence Dialogue:** The model produces exactly one natural, conversational, in-character comment matching the vanilla interaction type (chitchat, deep talk, insult, etc.).
 

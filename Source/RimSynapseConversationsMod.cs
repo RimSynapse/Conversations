@@ -33,36 +33,25 @@ namespace RimSynapse.Conversations
             Listing_Standard listingStandard = new Listing_Standard();
             listingStandard.Begin(inRect);
 
-            if (RimSynapse.RimSynapseMod.Instance?.Settings != null)
-            {
-                var settings = RimSynapse.RimSynapseMod.Instance.Settings;
-                settings.shortTermMemoryHours = listingStandard.SliderLabeled(
-                    $"Chat History Retention: {settings.shortTermMemoryHours:F0} hours",
-                    settings.shortTermMemoryHours, 6f, 168f,
-                    1f,
-                    "Configure how many in-game hours chat history between pawns is retained before it naturally fades."
-                );
-                listingStandard.Gap(12f);
-            }
-
-            listingStandard.CheckboxLabeled(
-                "Experimental: Pre-seed conversations (may serve stale context)",
-                ref Settings.experimentalPreSeeding,
-                "EXPERIMENTAL. Pre-generates conversations in the background and serves them instantly. " +
-                "Off by default: pre-seeded lines can reference stale context (weather, a pawn who's been " +
-                "indoors all day). With it off, every conversation is generated live."
+            Settings.conversationHistoryHours = listingStandard.SliderLabeled(
+                $"Chat History Retention: {Settings.conversationHistoryHours:F0} hours",
+                Settings.conversationHistoryHours,
+                RimSynapseConversationsSettings.MinHistoryHours, RimSynapseConversationsSettings.MaxHistoryHours,
+                1f,
+                "How many in-game hours of pawn conversation history is kept before it is pruned (default 24, max 72). " +
+                "Also the window in which a new interaction continues the existing thread instead of starting fresh."
             );
             listingStandard.Gap(12f);
 
             Settings.dialogueCooldownHours = listingStandard.SliderLabeled(
                 Settings.dialogueCooldownHours <= 0f
-                    ? "AI Conversation Cooldown: Off (every vanilla interaction)"
-                    : $"AI Conversation Cooldown: {Settings.dialogueCooldownHours:F1} in-game hours",
+                    ? "Conversation Cooldown: Off (a pair may talk whenever a point is ready)"
+                    : $"Conversation Cooldown: {Settings.dialogueCooldownHours:F1} in-game hours",
                 Settings.dialogueCooldownHours, 0f, 12f,
                 0.5f,
-                "Minimum in-game hours before the same pair of pawns will generate another AI conversation. " +
-                "Vanilla social interactions fire constantly; raising this reduces chatter and prevents short-term " +
-                "social memories from piling up faster than they decay. Set to 0 for legacy behavior (a dialogue on every interaction)."
+                "Minimum in-game hours before the same pair of pawns talks again. Pawns talk when something on " +
+                "their agenda is ready for a listener in range; raising this reduces chatter and keeps short-term " +
+                "social memories from piling up faster than they decay. 0 = no throttle."
             );
             listingStandard.Gap(12f);
 
@@ -96,35 +85,6 @@ namespace RimSynapse.Conversations
             Settings.bubbleBlue = listingStandard.Slider(Settings.bubbleBlue, 0f, 1f);
             listingStandard.Label($"Background Transparency (Alpha): {Settings.bubbleAlpha:F2}");
             Settings.bubbleAlpha = listingStandard.Slider(Settings.bubbleAlpha, 0.1f, 1f);
-            listingStandard.Gap(12f);
-
-            listingStandard.Label("Adjust Chat Topics:");
-            var allTopics = DefDatabase<ChatTopicDef>.AllDefsListForReading;
-            if (allTopics != null && allTopics.Count > 0)
-            {
-                foreach (var topic in allTopics)
-                {
-                    bool isEnabled = Settings.disabledTopicDefNames == null || !Settings.disabledTopicDefNames.Contains(topic.defName);
-                    bool check = isEnabled;
-                    listingStandard.CheckboxLabeled($"  {topic.topicName} ({(topic.isDeepTalk ? "Deep Talk" : "Chitchat")})", ref check, topic.description);
-                    if (check != isEnabled)
-                    {
-                        if (check)
-                        {
-                            Settings.disabledTopicDefNames.Remove(topic.defName);
-                        }
-                        else
-                        {
-                            if (Settings.disabledTopicDefNames == null) Settings.disabledTopicDefNames = new List<string>();
-                            Settings.disabledTopicDefNames.Add(topic.defName);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                listingStandard.Label("  (No XML chat topics loaded yet)");
-            }
             listingStandard.Gap(12f);
 
             if (listingStandard.ButtonText("Open Encyclopedia"))

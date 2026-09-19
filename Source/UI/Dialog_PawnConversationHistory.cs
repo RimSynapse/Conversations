@@ -21,7 +21,7 @@ namespace RimSynapse.Conversations
         }
 
         private Pawn pawn;
-        private Pawn selectedRecipient;
+        private PawnConversation selectedConversation;
         private Vector2 leftScrollPosition = Vector2.zero;
         private Vector2 rightScrollPosition = Vector2.zero;
         private Vector2 overheardScrollPosition = Vector2.zero;
@@ -74,72 +74,55 @@ namespace RimSynapse.Conversations
                 // Dividing line
                 Widgets.DrawLineVertical(contentRect.x + leftPaneWidth + 5f, contentRect.y, contentRect.height);
 
-                // 1. Gather all contacts who had active chats with this pawn
+                // 1. Gather every conversation this pawn is part of (multiway #40): a conversation is the
+                //    contact, labeled by its OTHER participants — so a three-way shows all the others.
                 var activeConvs = worldComp.pawnConversations
-                    .Where(c => c.pawnAId == pawn.ThingID || c.pawnBId == pawn.ThingID)
+                    .Where(c => c.Involves(pawn.ThingID) && c.messages != null && c.messages.Count > 0)
                     .OrderByDescending(c => c.lastTick)
                     .ToList();
 
-                var contacts = new List<Pawn>();
-                foreach (var conv in activeConvs)
-                {
-                    string otherId = conv.pawnAId == pawn.ThingID ? conv.pawnBId : conv.pawnAId;
-                    Pawn otherPawn = FindPawnById(otherId);
-                    if (otherPawn != null && !contacts.Contains(otherPawn))
-                    {
-                        contacts.Add(otherPawn);
-                    }
-                }
-
                 // Default selection
-                if (selectedRecipient == null && contacts.Count > 0)
+                if ((selectedConversation == null || !activeConvs.Contains(selectedConversation)) && activeConvs.Count > 0)
                 {
-                    selectedRecipient = contacts[0];
+                    selectedConversation = activeConvs[0];
                 }
 
-                // 2. Render Left Panel (Contacts list)
+                // 2. Render Left Panel (conversation list)
                 float rowHeight = 45f;
-                float leftScrollHeight = contacts.Count * rowHeight;
+                float leftScrollHeight = activeConvs.Count * rowHeight;
                 Rect leftViewRect = new Rect(0f, 0f, leftPaneWidth - 16f, leftScrollHeight);
 
                 Widgets.BeginScrollView(leftRect, ref leftScrollPosition, leftViewRect);
                 float curY = 0f;
-                for (int i = 0; i < contacts.Count; i++)
+                for (int i = 0; i < activeConvs.Count; i++)
                 {
-                    Pawn otherPawn = contacts[i];
+                    PawnConversation conv = activeConvs[i];
+                    var otherPawns = conv.Others(pawn.ThingID).Select(FindPawnById).Where(x => x != null).ToList();
                     Rect rowRect = new Rect(0f, curY, leftPaneWidth - 16f, rowHeight - 4f);
 
-                    // Highlight states
-                    if (selectedRecipient == otherPawn)
-                    {
-                        Widgets.DrawHighlightSelected(rowRect);
-                    }
-                    else
-                    {
-                        Widgets.DrawHighlightIfMouseover(rowRect);
-                    }
+                    if (selectedConversation == conv) Widgets.DrawHighlightSelected(rowRect);
+                    else Widgets.DrawHighlightIfMouseover(rowRect);
 
-                    // Selection check
                     if (Widgets.ButtonInvisible(rowRect, true))
                     {
-                        selectedRecipient = otherPawn;
+                        selectedConversation = conv;
                         rightScrollPosition = Vector2.zero;
                     }
 
-                    // Render contact details
-                    Widgets.ThingIcon(new Rect(rowRect.x + 4f, rowRect.y + 4f, 32f, 32f), otherPawn);
-                    Rect labelRect = new Rect(rowRect.x + 40f, rowRect.y + 10f, rowRect.width - 44f, 25f);
-                    Widgets.Label(labelRect, otherPawn.Name.ToStringShort);
+                    // Lead avatar = first other participant; label = all others (a group reads as "A, B (+1)").
+                    if (otherPawns.Count > 0)
+                        Widgets.ThingIcon(new Rect(rowRect.x + 4f, rowRect.y + 4f, 32f, 32f), otherPawns[0]);
+                    Rect labelRect = new Rect(rowRect.x + 40f, rowRect.y + 8f, rowRect.width - 44f, 30f);
+                    Widgets.Label(labelRect, ContactLabel(otherPawns));
 
                     curY += rowHeight;
                 }
                 Widgets.EndScrollView();
 
                 // 3. Render Right Panel (Discord-style Chat view)
-                if (selectedRecipient != null)
+                if (selectedConversation != null)
                 {
-                    PawnConversation conversation = activeConvs.FirstOrDefault(c => 
-                        c.pawnAId == selectedRecipient.ThingID || c.pawnBId == selectedRecipient.ThingID);
+                    PawnConversation conversation = selectedConversation;
 
                     if (conversation != null && conversation.messages.Count > 0)
                     {
@@ -188,7 +171,7 @@ namespace RimSynapse.Conversations
                             }
 
                             bool isSenderSelf = msg.sender == pawn.ThingID;
-                            Pawn senderPawn = isSenderSelf ? pawn : selectedRecipient;
+                            Pawn senderPawn = isSenderSelf ? pawn : FindPawnById(msg.sender);
 
                             // Draw Avatar
                             Rect avatarRect = new Rect(10f, chatY, 32f, 32f);
@@ -476,6 +459,16 @@ namespace RimSynapse.Conversations
             string amPm = hour >= 12 ? "PM" : "AM";
 
             return $"{pmHour}:00 {amPm}";
+        }
+
+        /// <summary>Left-pane label for a conversation: the other participants' names, a group folded to
+        /// "First, Second (+N)" so it never overruns the narrow column.</summary>
+        private static string ContactLabel(List<Pawn> others)
+        {
+            if (others == null || others.Count == 0) return "(nobody)";
+            if (others.Count == 1) return others[0].Name.ToStringShort;
+            if (others.Count == 2) return $"{others[0].Name.ToStringShort}, {others[1].Name.ToStringShort}";
+            return $"{others[0].Name.ToStringShort}, {others[1].Name.ToStringShort} (+{others.Count - 2})";
         }
 
         private Pawn FindPawnById(string id)

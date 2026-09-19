@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Outsider chatter (#52): cheap authored barks for pawns the colony has NO standing relationship with
+  (raiders, traders, visitors), who never enter the LLM conversation system. Matched by <role>, optionally
+  narrowed by <factionDef> or <ideoMeme> (most specific wins; role-only is the generic fallback). LLM
+  flavor is layered on separately at world-gen — these are the always-present baseline.
+-->
+<Defs>
+
+  <!-- ===================== RAID LEADER (the warlord, personally on the field) ===================== -->
+  <RimSynapse.Conversations.OutsiderChatterDef>
+    <defName>RimSynapse_Outsider_RaidLeader_Generic</defName>
+    <role>RaidLeader</role>
+    <lines>
+      <li>Hold the line. We move when I say, and not before.</li>
+      <li>Patience. Their walls come down when the time is right.</li>
+      <li>Wait for the signal. Anyone who breaks early answers to me.</li>
+      <li>Let them sweat behind those walls. Time is on our side.</li>
+      <li>Steady. When we hit, we hit all at once.</li>
+    </lines>
+  </RimSynapse.Conversations.OutsiderChatterDef>
+
+  <!-- ===================== RAID MEMBER (rank-and-file) ===================== -->
+  <RimSynapse.Conversations.OutsiderChatterDef>
+    <defName>RimSynapse_Outsider_RaidMember_Generic</defName>
+    <role>RaidMember</role>
+    <lines>
+      <li>What are we waiting for? Let's just take it.</li>
+      <li>Look at all they've got. It'll be ours soon enough.</li>
+      <li>My feet are killing me. Can we get on with it?</li>
+      <li>I didn't march all this way to stand around.</li>
+      <li>Quiet little colony. Won't be quiet for long.</li>
+      <li>Soon as the word comes, I'm first through that gap.</li>
+    </lines>
+  </RimSynapse.Conversations.OutsiderChatterDef>
+
+  <!-- ===================== TRADER (caravan) ===================== -->
+  <RimSynapse.Conversations.OutsiderChatterDef>
+    <defName>RimSynapse_Outsider_Trader_Generic</defName>
+    <role>Trader</role>
+    <lines>
+      <li>Long road out here. Hope they've got silver worth the trip.</li>
+      <li>Fair prices for fair goods. That's how I work.</li>
+      <li>Decent little outpost. Might be a regular stop.</li>
+      <li>Let's do our business before the light goes.</li>
+      <li>Always a market on the rim, if you know where to look.</li>
+    </lines>
+  </RimSynapse.Conversations.OutsiderChatterDef>
+
+  <!-- ===================== VISITOR (non-hostile, passing through) ===================== -->
+  <RimSynapse.Conversations.OutsiderChatterDef>
+    <defName>RimSynapse_Outsider_Visitor_Generic</defName>
+    <role>Visitor</role>
+    <lines>
+      <li>Quiet place they've built out here.</li>
+      <li>Wouldn't want to winter here myself.</li>
+      <li>Friendly enough, for the rim.</li>
+      <li>Just passing through. No trouble from me.</li>
+      <li>Strange, the places people carve a home.</li>
+    </lines>
+  </RimSynapse.Conversations.OutsiderChatterDef>
+
+</Defs>

@@ -40,7 +40,7 @@ namespace RimSynapse.Conversations.API
                 foreach (var conv in wc.pawnConversations)
                 {
                     if (conv?.messages == null) continue;
-                    if (conv.pawnAId != pawn.ThingID && conv.pawnBId != pawn.ThingID) continue;
+                    if (!conv.Involves(pawn.ThingID)) continue;
                     collected.AddRange(conv.messages);
                 }
 

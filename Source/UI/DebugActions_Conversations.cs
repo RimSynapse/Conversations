@@ -13,11 +13,11 @@ namespace RimSynapse.Conversations.UI
     /// </summary>
     public static class DebugActions_Conversations
     {
+        // Only the memory-tier keys survive the motivated-dialogue scrub (#61); the canned colonist keys
+        // (room/apparel/health/food/vanilla-opinion/residency) were retired.
         private static readonly string[] SampleKeys =
         {
-            "ownedRoom", "apparel", "health", "bondedAnimal", "food",
-            "memoriesToday", "memoriesLongTerm", "griefMemories", "traumaMemories",
-            "recipientRelationship", "personalitySummary", "residency"
+            "memoriesToday", "memoriesLongTerm", "griefMemories", "traumaMemories"
         };
 
         [DebugAction("RimSynapse", "Conversations: Dump context (Log)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
@@ -50,7 +50,7 @@ namespace RimSynapse.Conversations.UI
             if (wc != null && recipient != null)
             {
                 RimSynapse.SynapseLogger.Info("conversations",
-                    $"Pool for pair: {wc.PoolCountForPair(p.ThingID, recipient.ThingID)}/{SynapseConversationsWorldComponent.MaxPreGenPerPair}; pooled topics: {string.Join(", ", wc.PoolTopicsForPair(p.ThingID, recipient.ThingID))}");
+                    $"Point pool: {wc.PointPreGenCount}/{SynapseConversationsWorldComponent.MaxPointPreGensTotal} pooled, {wc.PooledPoints().Count(c => c.initiatorId == p.ThingID)} with {p.LabelShort} as speaker; pending {wc.PendingPointGenCount}");
             }
         }
 
@@ -167,25 +167,111 @@ namespace RimSynapse.Conversations.UI
             Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.ForceConversation(p, other, intDef);
         }
 
-        /// <summary>Exercise the load-adaptive shed path (Conversations#38) headlessly: run a shed conversation
-        /// for this pawn and the nearest colonist — no LLM call — and log the offsets applied plus the live
-        /// backpressure readings, so we can confirm relationships still move and see whether real load would
-        /// currently trip the shed gate.</summary>
-        [DebugAction("RimSynapse", "Conversations: Force shed exchange (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
-        public static void ForceShedExchange(Pawn p)
+        /// <summary>#41 validation: force a chit-chat between the clicked pawn and the nearest conversation
+        /// participant of ANY role — so a colonist can be paired with a nearby prisoner, slave or guest, the
+        /// case the colonist-only force helpers can't reach. Confirms the exchange generates and persists.</summary>
+        [DebugAction("RimSynapse", "Conversations: Force exchange w/ nearest participant (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceExchangeWithParticipant(Pawn p)
         {
-            if (p == null) return;
-            Pawn other = p.Map?.mapPawns?.FreeColonists?
-                .Where(o => o != p && o.RaceProps.Humanlike && o.Spawned)
+            if (p == null || p.Map == null) return;
+            Pawn other = p.Map.mapPawns.AllPawnsSpawned
+                .Where(o => o != p && !o.Downed && RimSynapse.SynapseCoreProviders.MayConverse(o))
                 .OrderBy(o => o.Position.DistanceToSquared(p.Position))
                 .FirstOrDefault();
             if (other == null)
             {
-                RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] No conversation partner near {p.LabelShort}.");
+                RimSynapse.SynapseLogger.Info("conversations", $"[#41] No conversation participant near {p.LabelShort}.");
                 return;
             }
-            string summary = Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.DebugForceShed(p, other, false);
-            RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] {summary}");
+            string ra = RimSynapse.SynapseCoreProviders.ConversationRole(p);
+            string rb = RimSynapse.SynapseCoreProviders.ConversationRole(other);
+            RimSynapse.SynapseLogger.Info("conversations",
+                $"[#41] Forcing chit-chat {p.LabelShort} ({ra}) -> {other.LabelShort} ({rb}), dist {p.Position.DistanceTo(other.Position):F1}.");
+            Patches.Patch_Pawn_InteractionsTracker_TryInteractWith.ForceConversation(p, other, InteractionDefOf.Chitchat);
+        }
+
+        /// <summary>#41 validation: log, for every spawned humanlike, whether it passes the Core MayConverse
+        /// predicate and what role it resolves to — so eligibility is inspectable without hunting for a
+        /// natural trigger.</summary>
+        [DebugAction("RimSynapse", "Conversations: Dump participation eligibility (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void DumpParticipationEligibility()
+        {
+            var map = Find.CurrentMap;
+            if (map == null) return;
+            RimSynapse.SynapseLogger.Info("conversations", "--- Conversation participation (spawned humanlikes) ---");
+            int yes = 0, no = 0;
+            foreach (var pawn in map.mapPawns.AllPawnsSpawned
+                .Where(x => x.RaceProps.Humanlike && !x.Dead)
+                .OrderByDescending(x => RimSynapse.SynapseCoreProviders.MayConverse(x)))
+            {
+                bool may = RimSynapse.SynapseCoreProviders.MayConverse(pawn);
+                string role = RimSynapse.SynapseCoreProviders.ConversationRole(pawn);
+                RimSynapse.SynapseLogger.Info("conversations",
+                    $"  [{(may ? "YES" : "no ")}] {pawn.LabelShort} — {role} — faction {(pawn.Faction?.Name ?? "none")}");
+                if (may) yes++; else no++;
+            }
+            RimSynapse.SynapseLogger.Info("conversations", $"--- {yes} may converse / {no} excluded ---");
+        }
+
+        /// <summary>#52 validation: resolve an outsider's role, pick one of their authored barks, log it and
+        /// surface it as a speech bubble — so the line bank is inspectable without waiting for a raid or a
+        /// caravan. Reports why a pawn is skipped (colony-related, factionless, animal).</summary>
+        [DebugAction("RimSynapse", "Conversations: Force outsider bark (Tool)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceOutsiderBark(Pawn p)
+        {
+            if (p == null) return;
+            var role = Generation.OutsiderLineBank.ResolveRole(p);
+            if (role == null)
+            {
+                RimSynapse.SynapseLogger.Info("conversations",
+                    $"[#52] {p.LabelShort} is not an outsider we bark for (MayConverse={RimSynapse.SynapseCoreProviders.MayConverse(p)}, faction={p.Faction?.Name ?? "none"}, humanlike={p.RaceProps?.Humanlike}).");
+                return;
+            }
+            string line = Generation.OutsiderLineBank.PickLine(p);
+            RimSynapse.SynapseLogger.Info("conversations",
+                $"[#52] {p.LabelShort} ({role}, faction {p.Faction?.Name ?? "none"}) bark: \"{line ?? "(no matching line)"}\"");
+            if (!string.IsNullOrEmpty(line))
+                SpeechBubbleManager.AddBubble(p, null, line, 0, 4.5f);
+        }
+
+        /// <summary>#40/#59 validation: prune conversation history to the retention window right now and log
+        /// the before/after counts, instead of waiting for the periodic maintenance tick.</summary>
+        [DebugAction("RimSynapse", "Conversations: Prune history now (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void PruneHistoryNow()
+        {
+            var wc = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            if (wc == null) return;
+            RimSynapse.SynapseLogger.Info("conversations", "[#40] Pruned conversation history — " + wc.DebugPruneHistoryNow());
+        }
+
+        /// <summary>#52 validation: spawn a hostile raider near the colony so the outsider line bank can be
+        /// exercised without waiting for a raid. Use "Force outsider bark" on the spawned pawn.</summary>
+        [DebugAction("RimSynapse", "Conversations: Spawn test raider (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void SpawnTestRaider()
+        {
+            var map = Find.CurrentMap;
+            if (map == null) return;
+            Pawn anchor = map.mapPawns.FreeColonists.FirstOrDefault();
+            IntVec3 near = anchor?.Position ?? map.Center;
+
+            Faction fac = Find.FactionManager.AllFactions
+                .FirstOrDefault(f => !f.IsPlayer && f.def.humanlikeFaction && !f.def.hidden && !f.temporary && f.HostileTo(Faction.OfPlayer))
+                ?? Find.FactionManager.AllFactions.FirstOrDefault(f => !f.IsPlayer && f.def.humanlikeFaction && !f.def.hidden && !f.temporary);
+            if (fac == null)
+            {
+                RimSynapse.SynapseLogger.Info("conversations", "[#52] No non-player humanlike faction to spawn a raider from.");
+                return;
+            }
+            if (!fac.HostileTo(Faction.OfPlayer))
+                fac.TryAffectGoodwillWith(Faction.OfPlayer, -200, false, false);
+
+            Pawn raider = PawnGenerator.GeneratePawn(new PawnGenerationRequest(
+                PawnKindDefOf.Villager, fac, PawnGenerationContext.NonPlayer, -1,
+                forceGenerateNewPawn: true, allowDowned: false));
+            IntVec3 cell = CellFinder.RandomClosewalkCellNear(near, map, 6);
+            GenSpawn.Spawn(raider, cell, map);
+            RimSynapse.SynapseLogger.Info("conversations",
+                $"[#52] Spawned test raider {raider.LabelShort} ({raider.Faction?.Name}, hostile={raider.Faction?.HostileTo(Faction.OfPlayer)}) at {cell}. Use 'Force outsider bark' on them.");
         }
 
         /// <summary>Log the most recent exchange this pawn is part of, speaker by speaker — the headless way
@@ -199,7 +285,7 @@ namespace RimSynapse.Conversations.UI
 
             string id = p.ThingID;
             var conv = wc.pawnConversations
-                .Where(c => c.pawnAId == id || c.pawnBId == id)
+                .Where(c => c.Involves(id))
                 .OrderByDescending(c => c.lastTick)
                 .FirstOrDefault();
             if (conv == null || conv.messages == null || conv.messages.Count == 0)
@@ -208,8 +294,9 @@ namespace RimSynapse.Conversations.UI
                 return;
             }
 
-            Pawn other = SynapseConversationsWorldComponent.PawnFromId(conv.pawnAId == id ? conv.pawnBId : conv.pawnAId);
-            RimSynapse.SynapseLogger.Info("conversations", $"--- Last exchange: {p.LabelShort} & {other?.LabelShort ?? "?"} (recentTopics: {string.Join(", ", conv.recentTopics ?? new System.Collections.Generic.List<string>())}) ---");
+            var others = conv.Others(id)
+                .Select(pid => SynapseConversationsWorldComponent.PawnFromId(pid)?.LabelShort ?? pid);
+            RimSynapse.SynapseLogger.Info("conversations", $"--- Last exchange: {p.LabelShort} & {string.Join(", ", others)} ({conv.participantIds.Count} participants; recentTopics: {string.Join(", ", conv.recentTopics ?? new System.Collections.Generic.List<string>())}) ---");
             foreach (var m in conv.messages)
             {
                 Pawn spk = SynapseConversationsWorldComponent.PawnFromId(m.sender);
@@ -221,19 +308,6 @@ namespace RimSynapse.Conversations.UI
         public static void DumpMetrics()
         {
             RimSynapse.SynapseLogger.Info("conversations", ConversationMetrics.Summary());
-        }
-
-        /// <summary>
-        /// 0.8 perf validation: force the environmental-trigger scan (darkness/freezer) for every
-        /// colonist now, bypassing the per-pawn hash-interval gate, and log how many were evaluated.
-        /// </summary>
-        [DebugAction("RimSynapse", "Conversations: Force environmental scan (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
-        public static void ForceEnvironmentalScan()
-        {
-            var mc = Find.CurrentMap?.GetComponent<SynapseConversationsMapComponent>();
-            if (mc == null) { RimSynapse.SynapseLogger.Info("conversations", "[RimSynapse] No conversations map component."); return; }
-            int n = mc.ForceEnvironmentalScan();
-            RimSynapse.SynapseLogger.Info("conversations", $"[RimSynapse] Forced environmental scan evaluated {n} colonist(s).");
         }
 
         /// <summary>
@@ -250,20 +324,6 @@ namespace RimSynapse.Conversations.UI
                 "get_chat_history      : " + SynapseToolRegistry.ExecuteTool("get_chat_history", args, allowMutating: false));
             RimSynapse.SynapseLogger.Info("conversations",
                 "get_colonist_interests: " + SynapseToolRegistry.ExecuteTool("get_colonist_interests", args, allowMutating: false));
-        }
-
-        [DebugAction("RimSynapse", "Conversations: Dump pre-gen pool (Log)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]
-        public static void DumpPreGenPool()
-        {
-            var wc = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
-            if (wc == null) { RimSynapse.SynapseLogger.Info("conversations", "[RimSynapse] No conversations world component."); return; }
-
-            RimSynapse.SynapseLogger.Info("conversations", $"--- Pre-gen pool: {wc.preGenPool.Count}/{SynapseConversationsWorldComponent.MaxPreGenTotal} ---");
-            foreach (var e in wc.preGenPool)
-            {
-                RimSynapse.SynapseLogger.Info("conversations",
-                    $"  [{e.topicDefName}] {SynapseConversationsWorldComponent.PawnFromId(e.initiatorId)?.LabelShort ?? e.initiatorId} -> {SynapseConversationsWorldComponent.PawnFromId(e.recipientId)?.LabelShort ?? e.recipientId}: \"{e.initiatorStatement}\"");
-            }
         }
 
         [DebugAction("RimSynapse", "Conversations: chit-chat->death memory linkage (Core #80)", actionType = DebugActionType.Action, allowedGameStates = AllowedGameStates.PlayingOnMap)]

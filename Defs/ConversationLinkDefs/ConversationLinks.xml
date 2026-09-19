@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Conversation links (#60 §2 "Link", folds #52/#53): authored OPENERS for resident <-> outsider pairs,
+  keyed by <speaker> role -> <listener> role. A visitor with no psychology background has nothing of their
+  own to say, so the opener is authored; the listener's ANSWER is a normal psychology-voiced line with
+  cheap facts injected (tenure, arrival, what's new, the place). Roles: Resident, NewCitizen (recruited
+  within the last quadrum), Guest (quest lodger), Visitor, Trader. Prisoners/slaves use the warden path.
+  Mods may add more defs for the same pair; one is picked at random.
+-->
+<Defs>
+
+  <!-- ===================== OUTSIDERS -> RESIDENTS ===================== -->
+  <RimSynapse.Conversations.ConversationLinkDef>
+    <defName>RimSynapse_Link_Visitor_Resident</defName>
+    <speaker>Visitor</speaker>
+    <listener>Resident</listener>
+    <lines>
+      <li>What's new around here?</li>
+      <li>How long have you all been out here?</li>
+      <li>How did you end up in a place like this?</li>
+      <li>Anything worth knowing before I go poking around?</li>
+      <li>Quiet place. Is it always this quiet?</li>
+    </lines>
+  </RimSynapse.Conversations.ConversationLinkDef>
+
+  <RimSynapse.Conversations.ConversationLinkDef>
+    <defName>RimSynapse_Link_Trader_Resident</defName>
+    <speaker>Trader</speaker>
+    <listener>Resident</listener>
+    <lines>
+      <li>What are folks short on this season?</li>
+      <li>Heard anything from the road lately?</li>
+      <li>How's the harvest treating you?</li>
+      <li>Are you the one I talk to about prices, or is that someone else?</li>
+    </lines>
+  </RimSynapse.Conversations.ConversationLinkDef>
+
+  <RimSynapse.Conversations.ConversationLinkDef>
+    <defName>RimSynapse_Link_Guest_Resident</defName>
+    <speaker>Guest</speaker>
+    <listener>Resident</listener>
+    <lines>
+      <li>So what does a normal day here look like?</li>
+      <li>Who do I talk to if I need something?</li>
+      <li>How long have you lived here?</li>
+      <li>When did you become a citizen here, or were you here from the start?</li>
+    </lines>
+  </RimSynapse.Conversations.ConversationLinkDef>
+
+  <!-- ===================== RESIDENTS -> OUTSIDERS ===================== -->
+  <RimSynapse.Conversations.ConversationLinkDef>
+    <defName>RimSynapse_Link_Resident_Visitor</defName>
+    <speaker>Resident</speaker>
+    <listener>Visitor</listener>
+    <lines>
+      <li>What brings you this way?</li>
+      <li>Where did you come in from?</li>
+      <li>How's the road been?</li>
+      <li>Staying long?</li>
+    </lines>
+  </RimSynapse.Conversations.ConversationLinkDef>
+
+  <RimSynapse.Conversations.ConversationLinkDef>
+    <defName>RimSynapse_Link_Resident_Trader</defName>
+    <speaker>Resident</speaker>
+    <listener>Trader</listener>
+    <lines>
+      <li>What have you got that we haven't seen before?</li>
+      <li>Any news from the other settlements?</li>
+      <li>Rough trip?</li>
+    </lines>
+  </RimSynapse.Conversations.ConversationLinkDef>
+
+  <RimSynapse.Conversations.ConversationLinkDef>
+    <defName>RimSynapse_Link_Resident_Guest</defName>
+    <speaker>Resident</speaker>
+    <listener>Guest</listener>
+    <lines>
+      <li>Settling in alright?</li>
+      <li>Anything you need while you're with us?</li>
+      <li>How are you finding the place?</li>
+    </lines>
+  </RimSynapse.Conversations.ConversationLinkDef>
+
+  <!-- ===================== RESIDENTS <-> NEW CITIZENS ===================== -->
+  <RimSynapse.Conversations.ConversationLinkDef>
+    <defName>RimSynapse_Link_Resident_NewCitizen</defName>
+    <speaker>Resident</speaker>
+    <listener>NewCitizen</listener>
+    <lines>
+      <li>Settling in yet?</li>
+      <li>So how are you finding it, now you're one of us?</li>
+      <li>When did it start feeling like home? Or hasn't it?</li>
+      <li>Has anyone shown you where everything is yet?</li>
+    </lines>
+  </RimSynapse.Conversations.ConversationLinkDef>
+
+  <RimSynapse.Conversations.ConversationLinkDef>
+    <defName>RimSynapse_Link_NewCitizen_Resident</defName>
+    <speaker>NewCitizen</speaker>
+    <listener>Resident</listener>
+    <lines>
+      <li>How long have you been here?</li>
+      <li>What's it like here in the cold season?</li>
+      <li>Is it always like this, or is this a bad week?</li>
+      <li>Who actually runs things around here?</li>
+    </lines>
+  </RimSynapse.Conversations.ConversationLinkDef>
+
+</Defs>

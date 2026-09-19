@@ -69,25 +69,6 @@ namespace RimSynapse.Conversations.Tests
                 return "today / long-term / grief tiers all resolved";
             });
 
-            // Pre-seed pool: per-pair cap and topic variety.
-            yield return new SynapseTestCase("Conversations_PreGenPoolCapsAndVaries", () =>
-            {
-                var wc = new SynapseConversationsWorldComponent(Find.World);
-                for (int i = 0; i < 5; i++)
-                {
-                    wc.AddToPool(new PreGeneratedConversation
-                    {
-                        initiatorId = "P1", recipientId = "P2", topicDefName = "Topic_" + i,
-                        initiatorStatement = "hi " + i, recipientResponse = "hello " + i
-                    });
-                }
-                Assert.Equal(SynapseConversationsWorldComponent.MaxPreGenPerPair, wc.PoolCountForPair("P1", "P2"),
-                    "a single pair cannot exceed the per-pair cap");
-                Assert.False(wc.PairNeedsFill("P1", "P2"), "a full pair reports no need to fill");
-                Assert.Equal(SynapseConversationsWorldComponent.MaxPreGenPerPair, wc.PoolTopicsForPair("P1", "P2").Count,
-                    "pooled topics are distinct (selection diversifies them)");
-                return $"pair pool={wc.PoolCountForPair("P1", "P2")}, distinct topics={wc.PoolTopicsForPair("P1", "P2").Count}";
-            });
 
             // Read-only agent tools (Conversations#10): get_chat_history filters to the named colonist,
             // is newest-first, honors maxMessages; get_colonist_interests returns valid JSON; unknown
@@ -208,62 +189,22 @@ namespace RimSynapse.Conversations.Tests
                 core.AddMemory(death); death.isLongTerm = true; death.salience = 2f;
                 core.AddMemory(new WeightedMemory { summary = "idle chatter", memoryType = "social", weight = 0.2f, baseWeight = 0.2f, absTick = now - 50 });
 
-                var deep = Patch_Pawn_InteractionsTracker_TryInteractWith.SelectEventMemoryCandidate(core, true, null);
+                var deep = RimSynapse.Conversations.Generation.ConversationBeatResolver.SelectEventMemory(core, true, null);
                 Assert.True(deep != null && deep.summary.Contains("friend die"), "deep talk picks the weightiest event");
 
-                var chit = Patch_Pawn_InteractionsTracker_TryInteractWith.SelectEventMemoryCandidate(core, false, null);
+                var chit = RimSynapse.Conversations.Generation.ConversationBeatResolver.SelectEventMemory(core, false, null);
                 Assert.True(chit != null && chit.memoryType == "EventReflection", "chit-chat picks an EventReflection event");
 
                 var avoid = new HashSet<string> { "event:" + (deep.memId ?? deep.summary) };
-                var deep2 = Patch_Pawn_InteractionsTracker_TryInteractWith.SelectEventMemoryCandidate(core, true, avoid);
+                var deep2 = RimSynapse.Conversations.Generation.ConversationBeatResolver.SelectEventMemory(core, true, avoid);
                 Assert.True(deep2 != deep, "the avoid set excludes the just-told event");
 
                 var core2 = new SynapseCorePawnComp();
                 core2.AddMemory(new WeightedMemory { summary = "just chatting", memoryType = "social", weight = 0.2f, baseWeight = 0.2f, absTick = now });
-                Assert.True(Patch_Pawn_InteractionsTracker_TryInteractWith.SelectEventMemoryCandidate(core2, false, null) == null,
+                Assert.True(RimSynapse.Conversations.Generation.ConversationBeatResolver.SelectEventMemory(core2, false, null) == null,
                     "a pawn with no EventReflection memories yields no event topic");
 
                 return $"deep=\"{deep.summary}\", chit=\"{chit.summary}\", avoid excluded";
-            });
-
-            // Pre-staged event conversations (#35): stage → unique-per-pair → event pop consumes →
-            // generic pop ignores event pre-gens.
-            yield return new SynapseTestCase("Conversations_EventPreStaging", () =>
-            {
-                Map map = Find.CurrentMap ?? Find.Maps.FirstOrDefault();
-                Assert.True(map != null, "no map available");
-                var cols = map.mapPawns.FreeColonists.ToList();
-                Assert.True(cols.Count >= 2, "need two colonists");
-                Pawn a = cols[0], b = cols[1];
-
-                var wc = new SynapseConversationsWorldComponent(Find.World);
-                wc.AddEventPreGen(new PreGeneratedConversation
-                {
-                    initiatorId = a.ThingID, recipientId = b.ThingID,
-                    initiatorStatement = "a crow mauled me", recipientResponse = "brutal — you okay?",
-                    eventKey = "ev1", eventSummary = "clawed by a crow"
-                });
-                Assert.True(wc.PairHasStagedEvent(a.ThingID, b.ThingID, "ev1"), "pair has the event staged");
-                Assert.True(wc.PairHasStagedEvent(b.ThingID, a.ThingID, "ev1"), "staging is symmetric per pair");
-                Assert.Equal(1, wc.EventPreGenCount, "one event pre-gen staged");
-
-                // duplicate (same pair + event) is not staged twice
-                wc.AddEventPreGen(new PreGeneratedConversation
-                {
-                    initiatorId = a.ThingID, recipientId = b.ThingID,
-                    initiatorStatement = "x", recipientResponse = "y", eventKey = "ev1", eventSummary = "s"
-                });
-                Assert.Equal(1, wc.EventPreGenCount, "duplicate pair+event not staged twice");
-
-                // the generic pool pop must NOT grab an event-anchored pre-gen
-                Assert.True(wc.PopFreshPreGen(a, b) == null, "generic pop ignores event pre-gens");
-
-                // event pop returns it and consumes it (unique per pair)
-                var got = wc.PopEventPreGenForPair(a, b);
-                Assert.True(got != null && got.eventKey == "ev1", "event pop returns the staged retelling");
-                Assert.Equal(0, wc.EventPreGenCount, "event pre-gen consumed on pop");
-                Assert.True(wc.PopEventPreGenForPair(a, b) == null, "a told event is not repeated to the same pair");
-                return "stage + unique + event-pop-consumes + generic-pop-ignores ok";
             });
 
             // Activity-subject cleanup: Core's summary appends a completion percentage to each job
@@ -281,6 +222,42 @@ namespace RimSynapse.Conversations.Tests
                 Assert.Equal("talking (to Randy)", ConversationBeatResolver.StripTrailingPercent("talking (to Randy)"),
                     "a non-percent parenthetical is left intact");
                 return "strip + fractional + no-op + non-percent-paren ok";
+            });
+
+            // Multiway record model (#40): a conversation is a participant SET, joins are idempotent and
+            // order-preserving, and each pawn sees the correct "others". This is the shape that replaced the
+            // pawnAId/pawnBId pair the old history was locked to.
+            yield return new SynapseTestCase("Conversations_MultiwayParticipants", () =>
+            {
+                var conv = new PawnConversation("A", "B", 0);
+                Assert.Equal(2, conv.participantIds.Count, "a pair starts with two participants");
+                Assert.True(conv.Involves("A") && conv.Involves("B"), "both pair members are involved");
+                Assert.False(conv.Involves("C"), "a stranger is not involved");
+
+                Assert.True(conv.AddParticipant("C"), "a third participant is added");
+                Assert.False(conv.AddParticipant("C"), "adding the same participant again is a no-op");
+                Assert.Equal(3, conv.participantIds.Count, "the set holds three, without duplication");
+                Assert.Equal("C", conv.participantIds[2], "join order is preserved");
+
+                var othersOfB = conv.Others("B").ToList();
+                Assert.Equal(2, othersOfB.Count, "B sees the other two");
+                Assert.True(othersOfB.Contains("A") && othersOfB.Contains("C"), "B's others are A and C");
+                return "pair -> 3 participants, idempotent add, order kept, Others correct";
+            });
+
+            // Save-compat: a record scribed before #40 carried pawnAId/pawnBId and no participant list.
+            // Loading must migrate that legacy pair into participantIds so old saves keep their history.
+            yield return new SynapseTestCase("Conversations_LegacyPairMigrates", () =>
+            {
+                var legacy = new PawnConversation();
+                legacy.participantIds.Clear();          // an old save had no participant list
+                legacy.SetLegacyPairForTest("X", "Y");  // it had pawnAId/pawnBId instead
+                legacy.MigrateLegacyPairIfNeeded();
+                Assert.True(legacy.Involves("X") && legacy.Involves("Y"), "the legacy pair became participants");
+                Assert.Equal(2, legacy.participantIds.Count, "exactly the two legacy ids, no extras");
+                legacy.MigrateLegacyPairIfNeeded(); // idempotent — a second load pass adds nothing
+                Assert.Equal(2, legacy.participantIds.Count, "migration is idempotent");
+                return "legacy pawnAId/pawnBId migrated into the participant set";
             });
         }
     }

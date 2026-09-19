@@ -84,23 +84,6 @@ namespace RimSynapse.Conversations.Generation
             };
         }
 
-        /// <summary>A beat for an environmental trigger (darkness, freezer, …). The caller already knows the
-        /// concrete subject — a phrase like "walking into the freezing cold freezer and complaining about the
-        /// chilling temperature" — so we skip subject selection and just wrap it as a casual, passing remark.
-        /// This routes environmental comments through the same thin, voice-led prompt as ordinary chit-chat,
-        /// instead of the retired heavy per-pawn dump (Conversations#44).</summary>
-        public static ConversationBeat EnvironmentalBeat(Pawn initiator, Pawn recipient, string type, string description)
-        {
-            return new ConversationBeat
-            {
-                subject = description,
-                initiatorStance = "remarking on it out loud as it happens, just in passing",
-                recipientStance = RecipientColour(recipient, initiator, "reacting to the offhand comment"),
-                tone = BeatTone.Casual,
-                isDeep = false,
-                topicKey = "env:" + (type ?? "ambient")
-            };
-        }
 
         // ── Event beat with involvement-aware framing ────────────────────
         private static ConversationBeat TryEventBeat(Pawn initiator, Pawn recipient, SynapseCorePawnComp initCore,
@@ -132,8 +115,9 @@ namespace RimSynapse.Conversations.Generation
         }
 
         /// <summary>A recent significant EventReflection the initiator lived through; deep talk takes the
-        /// weightiest, chit-chat a recent one. Honours the pair's recent-topic avoid set.</summary>
-        private static WeightedMemory SelectEventMemory(SynapseCorePawnComp core, bool deep, ICollection<string> avoid)
+        /// weightiest, chit-chat a recent one. Honours the pair's recent-topic avoid set. Public so the
+        /// in-game test suite exercises the LIVE selection (it previously tested a dead duplicate).</summary>
+        public static WeightedMemory SelectEventMemory(SynapseCorePawnComp core, bool deep, ICollection<string> avoid)
         {
             if (core?.memories == null || core.memories.Count == 0) return null;
             long nowAbs = Find.TickManager != null ? Find.TickManager.TicksAbs : 0L;
