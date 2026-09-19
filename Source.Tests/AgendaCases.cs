@@ -142,6 +142,29 @@ namespace RimSynapse.Conversations.Tests
                 return $"trace=[{string.Join("; ", trace)}]";
             });
 
+            // Health rule (#68), recovery half: a Recovery-tagged memory (Psychology's therapy writes these)
+            // becomes a relief point. Pure over Core memories — pass a null pawn so the live-health branch
+            // (which needs a spawned pawn) is skipped and only the memory path runs.
+            yield return new SynapseTestCase("Conversations_FormationHealthRecovery", () =>
+            {
+                long nowAbs = Find.TickManager != null ? Find.TickManager.TicksAbs : 1000000L;
+                var core = new SynapseCorePawnComp();
+                core.AddMemory(new WeightedMemory { summary = "Recovered from trauma through sustained therapy.", memoryType = "TraitLost", weight = 1.0f, baseWeight = 1.0f, absTick = nowAbs - 500, isLongTerm = true, tags = new List<string> { "TraitShift", "Therapy", "Recovery" } });
+                core.AddMemory(new WeightedMemory { summary = "an ordinary chat", memoryType = "social", weight = 0.5f, baseWeight = 0.5f, absTick = nowAbs - 300 });
+
+                var agenda = new SynapseConversationAgendaComp();
+                var trace = new List<string>();
+                AgendaFormation.FormHealth(null, core, agenda, 100, nowAbs, trace);
+
+                Assert.True(agenda.points.Any(p => p.subjectSummary.Contains("Recovered from trauma")), "a Recovery-tagged memory forms a relief point");
+                Assert.False(agenda.points.Any(p => p.subjectSummary.Contains("ordinary chat")), "a non-recovery memory is not formed by this rule");
+                int before = agenda.Count;
+                AgendaFormation.FormHealth(null, core, agenda, 200, nowAbs, null);
+                Assert.True(agenda.points.Count(p => p.subjectSummary.Contains("Recovered from trauma")) == 1, "no duplicate on a second pass");
+                Assert.True(agenda.Count >= before, "a second pass never removes points");
+                return $"trace=[{string.Join("; ", trace)}]";
+            });
+
             // Decay & prune (§3): weak, spent and stale points go, and their subjects are retired.
             yield return new SynapseTestCase("Conversations_AgendaDecayAndRetire", () =>
             {

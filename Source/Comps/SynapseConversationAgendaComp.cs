@@ -25,12 +25,20 @@ namespace RimSynapse.Conversations.Comps
         public const int MaxRetired = 16;
 
         /// <summary>Bond-shift baselines (rule 4): last-seen Psychology trust per other pawn (their unique
-        /// load id, as the social network keys them). Trust is the axis present on Psychology 0.10; the
-        /// warmth baseline returns alongside it when the relationship-compass axis (#72) lands in 0.10.</summary>
+        /// load id, as the social network keys them).</summary>
         public Dictionary<string, float> bondTrust = new Dictionary<string, float>();
+
+        /// <summary>Per-other-pawn WARMTH baseline (#70) — the "do they like each other" axis of the
+        /// relationship compass, now live on Psychology's SocialRecord. Mirrors <see cref="bondTrust"/>;
+        /// a notable swing forms a "grown fond of / cooled on" point.</summary>
+        public Dictionary<string, float> bondWarmth = new Dictionary<string, float>();
 
         /// <summary>Colony rumors (rule 6) are seeded once per visit.</summary>
         public bool rumorsSeeded;
+
+        /// <summary>Last-seen ideoligion certainty baseline (#66 rule 3), −1 = unset. A notable swing since
+        /// this forms a "faith gained / lost" point — the bond-shift pattern pointed at conviction.</summary>
+        public float certaintyBaseline = -1f;
 
         public Pawn Pawn => parent as Pawn;
         public bool IsEmpty => points == null || points.Count == 0;
@@ -105,13 +113,16 @@ namespace RimSynapse.Conversations.Comps
             Scribe_Collections.Look(ref points, "points", LookMode.Deep);
             Scribe_Collections.Look(ref retiredSubjects, "retiredSubjects", LookMode.Value);
             Scribe_Collections.Look(ref bondTrust, "bondTrust", LookMode.Value, LookMode.Value);
+            Scribe_Collections.Look(ref bondWarmth, "bondWarmth", LookMode.Value, LookMode.Value);
             Scribe_Values.Look(ref rumorsSeeded, "rumorsSeeded", false);
+            Scribe_Values.Look(ref certaintyBaseline, "certaintyBaseline", -1f);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 if (points == null) points = new List<TalkingPoint>();
                 points.RemoveAll(p => p == null);
                 if (retiredSubjects == null) retiredSubjects = new List<string>();
                 if (bondTrust == null) bondTrust = new Dictionary<string, float>();
+                if (bondWarmth == null) bondWarmth = new Dictionary<string, float>();
             }
         }
     }

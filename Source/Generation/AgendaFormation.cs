@@ -86,9 +86,11 @@ namespace RimSynapse.Conversations.Generation
             {
                 FormFromMemories(core, agenda, nowTick, nowAbs, mood, pawn, trace);
                 FormCaregiving(core, agenda, nowTick, nowAbs, trace);
+                FormHealth(pawn, core, agenda, nowTick, nowAbs, trace);
                 FormActivity(core, agenda, nowTick, trace);
             }
             if (conversant) FormBondShifts(pawn, agenda, nowTick, trace);
+            if (conversant) FormIdeology(pawn, agenda, nowTick, nearby, trace);
 
             // Outsiders (visitor / trader / guest) arrive carrying what the road says about this place.
             if (role == LinkRole.Visitor || role == LinkRole.Trader || role == LinkRole.Guest)
@@ -241,6 +243,190 @@ namespace RimSynapse.Conversations.Generation
         }
 
         // ═════════════════════════════════════════════════════════════════════════════════════════
+        // Rule 2c: Health & body (#68)
+        // ═════════════════════════════════════════════════════════════════════════════════════════
+
+        public const float ChronicPainThreshold = 0.25f;  // PainTotal at/above which the pain is worth a word
+
+        /// <summary>The body as a standing source of talk (#68): chronic pain, an addiction being fought, a
+        /// new prosthetic to get used to — one live-state point (the most pressing) — plus a relief point from
+        /// an existing "Recovered from…" memory (Psychology's therapy already writes these, so that half is
+        /// free). Live states use stable keys so they form once and retire via decay rather than every pass.</summary>
+        public static void FormHealth(Pawn pawn, SynapseCorePawnComp core, SynapseConversationAgendaComp agenda,
+            int nowTick, long nowAbs, List<string> trace)
+        {
+            var hs = pawn?.health?.hediffSet;
+            if (hs != null)
+            {
+                float pain = hs.PainTotal;
+                var addiction = hs.hediffs.FirstOrDefault(h => h is Hediff_Addiction) as Hediff_Addiction;
+                var implant = hs.hediffs.FirstOrDefault(h => h is Hediff_AddedPart);
+
+                // Priority: real pain to live with > an addiction being fought > a new part to adjust to.
+                if (pain >= ChronicPainThreshold && !Known(agenda, "health:pain"))
+                {
+                    var p = new TalkingPoint
+                    {
+                        subjectMemId = "health:pain",
+                        subjectSummary = "the pain they've been living with",
+                        salience = Mathf.Clamp(pain, 0.2f, 0.9f),
+                        register = pain >= 0.5f ? PointRegister.DeepTalk : PointRegister.ChitChat,
+                        formedTick = nowTick
+                    };
+                    if (agenda.Add(p)) trace?.Add($"health pain {pain:F2}");
+                }
+                else if (addiction != null && !Known(agenda, "health:addiction"))
+                {
+                    string chem = addiction.Chemical?.label ?? "the drug";
+                    var p = new TalkingPoint
+                    {
+                        subjectMemId = "health:addiction",
+                        subjectSummary = $"fighting the {chem} craving",
+                        salience = 0.5f,
+                        register = PointRegister.DeepTalk,
+                        formedTick = nowTick
+                    };
+                    if (agenda.Add(p)) trace?.Add($"health addiction {chem}");
+                }
+                else if (implant != null && !Known(agenda, "health:part"))
+                {
+                    var p = new TalkingPoint
+                    {
+                        subjectMemId = "health:part",
+                        subjectSummary = $"getting used to their {implant.LabelBase}",
+                        salience = 0.3f,
+                        register = PointRegister.ChitChat,
+                        formedTick = nowTick
+                    };
+                    if (agenda.Add(p)) trace?.Add($"health part {implant.LabelBase}");
+                }
+            }
+
+            // Recovery — the relief side, from a memory Psychology already writes (no new work).
+            if (core?.memories != null)
+            {
+                var recovery = core.memories
+                    .Where(m => m != null && !string.IsNullOrEmpty(m.summary) && m.tags != null && m.tags.Contains("Recovery"))
+                    .Where(m => m.isLongTerm || nowAbs - m.absTick <= RecentEventTicks)
+                    .Where(m => !Known(agenda, MemId(m)))
+                    .OrderByDescending(m => m.absTick)
+                    .FirstOrDefault();
+                if (recovery != null)
+                {
+                    var p = new TalkingPoint
+                    {
+                        subjectMemId = MemId(recovery),
+                        subjectSummary = recovery.summary,
+                        salience = 0.4f,
+                        register = PointRegister.ChitChat,
+                        formedTick = nowTick
+                    };
+                    if (agenda.Add(p)) trace?.Add($"health recovery \"{Short(recovery.summary)}\"");
+                }
+            }
+        }
+
+        // ═════════════════════════════════════════════════════════════════════════════════════════
+        // Rule 2d: Ideology (#66 — pawns discuss, and question, their beliefs). Rules 1–3 here; ritual
+        // afterglow (needs a completion hook) and conversion-as-conversation (needs Psychology) stay in #66.
+        // ═════════════════════════════════════════════════════════════════════════════════════════
+
+        public const float ConvictionAffirm = 0.7f;      // certainty at/above which a precept is affirmed
+        public const float ConvictionDoubt = 0.45f;      // at/below which it is questioned (a waverer)
+        public const float CertaintyShiftThreshold = 0.15f; // |Δcertainty| worth remarking on
+
+        /// <summary>Ideology topics, all READ from live ideo state (no Core/Psychology change): certainty
+        /// drift (the bond-shift pattern pointed at faith), musing on one of their own precepts (a zealot
+        /// affirms the same precept a waverer questions), and noticing a nearby pawn of a different ideo.
+        /// Guarded by <see cref="ModsConfig.IdeologyActive"/>.</summary>
+        public static void FormIdeology(Pawn pawn, SynapseConversationAgendaComp agenda, int nowTick,
+            IReadOnlyList<Pawn> nearby, List<string> trace)
+        {
+            if (!ModsConfig.IdeologyActive) return;
+            var ideo = pawn?.Ideo;
+            if (ideo == null) return;
+            float certainty = pawn.ideo?.Certainty ?? 0.5f;
+
+            // Rule 3 — certainty drift. First sighting records the baseline.
+            if (agenda.certaintyBaseline < 0f)
+            {
+                agenda.certaintyBaseline = certainty;
+            }
+            else
+            {
+                float dC = certainty - agenda.certaintyBaseline;
+                if (Mathf.Abs(dC) >= CertaintyShiftThreshold && !Known(agenda, "faith:drift"))
+                {
+                    agenda.certaintyBaseline = certainty;
+                    string dir = dC > 0 ? "felt their faith grow surer lately" : "been losing their faith lately";
+                    var p = new TalkingPoint
+                    {
+                        subjectMemId = "faith:drift",
+                        subjectSummary = $"how they've {dir}",
+                        salience = Mathf.Clamp(Mathf.Abs(dC) * 2f, 0.3f, 0.9f),
+                        register = PointRegister.DeepTalk,
+                        formedTick = nowTick
+                    };
+                    if (agenda.Add(p)) trace?.Add($"faith drift {dC:+0.00;-0.00}");
+                }
+                else
+                {
+                    agenda.certaintyBaseline = certainty; // keep the baseline current even below threshold
+                }
+            }
+
+            // Rule 1 — precept musing. One untold precept per pass; affirm when certain, question when wavering.
+            var precepts = ideo.PreceptsListForReading;
+            if (precepts != null && precepts.Count > 0)
+            {
+                var precept = precepts
+                    .Where(pr => pr != null && !string.IsNullOrEmpty(pr.LabelCap) && !Known(agenda, "precept:" + pr.Id))
+                    .RandomElementWithFallback(null);
+                if (precept != null && (certainty >= ConvictionAffirm || certainty <= ConvictionDoubt))
+                {
+                    bool affirm = certainty >= ConvictionAffirm;
+                    var p = new TalkingPoint
+                    {
+                        subjectMemId = "precept:" + precept.Id,
+                        subjectSummary = affirm
+                            ? $"how right it feels that their people hold to {precept.LabelCap}"
+                            : $"whether {precept.LabelCap} is really the way, the doubt gnawing at them",
+                        salience = affirm ? 0.3f : 0.6f,
+                        register = affirm ? PointRegister.ChitChat : PointRegister.DeepTalk,
+                        formedTick = nowTick
+                    };
+                    if (agenda.Add(p)) trace?.Add($"precept {(affirm ? "affirm" : "question")} \"{Short(precept.LabelCap)}\"");
+                }
+            }
+
+            // Rule 2 — belief clash: the nearest pawn of a DIFFERENT ideo.
+            if (nearby != null)
+            {
+                Pawn other = null; float bestD = float.MaxValue;
+                for (int i = 0; i < nearby.Count; i++)
+                {
+                    var o = nearby[i];
+                    if (o == null || o == pawn || !o.Spawned || o.Map != pawn.Map) continue;
+                    if (o.Ideo == null || o.Ideo == ideo) continue;
+                    float d = (o.Position - pawn.Position).LengthHorizontalSquared;
+                    if (d < bestD) { bestD = d; other = o; }
+                }
+                if (other != null && !Known(agenda, "ideoclash:" + other.ThingID))
+                {
+                    var p = new TalkingPoint
+                    {
+                        subjectMemId = "ideoclash:" + other.ThingID,
+                        subjectSummary = $"how differently {other.LabelShort} sees the world — they follow {other.Ideo.name}",
+                        salience = 0.4f,
+                        register = PointRegister.DeepTalk,
+                        formedTick = nowTick
+                    };
+                    if (agenda.Add(p)) trace?.Add($"belief clash with {other.LabelShort}");
+                }
+            }
+        }
+
+        // ═════════════════════════════════════════════════════════════════════════════════════════
         // Rule 3: Activity (folds #43)
         // ═════════════════════════════════════════════════════════════════════════════════════════
 
@@ -281,11 +467,12 @@ namespace RimSynapse.Conversations.Generation
         // Rule 4: Bond shift (Psychology socialNetwork)
         // ═════════════════════════════════════════════════════════════════════════════════════════
 
-        /// <summary>A notable TRUST change toward a third pawn since the last baseline → a point about them,
-        /// audience-restricted so it is never said TO them. First sighting only records the baseline.
-        /// Keyed on trust alone: it's the "do they rely on each other" axis and is present on Psychology 0.10.
-        /// (The warmth "do they like each other" axis is the relationship-compass work #72, not yet in 0.10 —
-        /// when it lands, add |Δwarmth| back here and restore the warmed-to/cooled-on directions.)</summary>
+        /// <summary>A notable change in how this pawn feels about a third pawn since the last baseline → a
+        /// point about them, audience-restricted so it is never said TO them. Watches BOTH compass axes now
+        /// (#70): TRUST ("come to rely on / stopped trusting") and WARMTH ("grown fond of / cooled on"), the
+        /// latter the romance axis — a warmth swing between established lovers reads as a relationship
+        /// ("grown closer to / drifting apart from") and is always deep. One point per pawn per pass, framed
+        /// on whichever axis moved more. First sighting on either axis only records the baseline.</summary>
         public static void FormBondShifts(Pawn pawn, SynapseConversationAgendaComp agenda, int nowTick, List<string> trace)
         {
             var psych = pawn.TryGetComp<RimSynapse.Psychology.Comps.SynapsePawnComp>();
@@ -297,36 +484,47 @@ namespace RimSynapse.Conversations.Generation
                 var rec = kv.Value;
                 if (rec == null || string.IsNullOrEmpty(otherId)) continue;
 
-                if (!agenda.bondTrust.TryGetValue(otherId, out float baseTrust))
-                {
-                    agenda.bondTrust[otherId] = rec.trust;
-                    continue;
-                }
+                // First sighting on EITHER axis just records the baseline — no point from a cold start.
+                bool haveTrust = agenda.bondTrust.TryGetValue(otherId, out float baseTrust);
+                bool haveWarmth = agenda.bondWarmth.TryGetValue(otherId, out float baseWarmth);
+                agenda.bondTrust[otherId] = rec.trust;
+                agenda.bondWarmth[otherId] = rec.warmth;
+                if (!haveTrust || !haveWarmth) continue;
 
                 float dT = rec.trust - baseTrust;
-                float magnitude = Mathf.Abs(dT);
-                if (magnitude < BondShiftThreshold) continue;
-
-                // Re-baseline whether or not the point survives the cap, so one shift yields one point.
-                agenda.bondTrust[otherId] = rec.trust;
+                float dW = rec.warmth - baseWarmth;
+                float magT = Mathf.Abs(dT), magW = Mathf.Abs(dW);
+                if (magT < BondShiftThreshold && magW < BondShiftThreshold) continue;
 
                 var other = ResolveOnMap(pawn.Map, otherId);
                 if (other == null) continue; // can't scope the audience → don't risk saying it to their face
                 string key = "bond:" + other.ThingID;
                 if (Known(agenda, key)) continue;
 
-                string direction = dT > 0 ? "come to rely on" : "stopped trusting";
+                // One point per pawn per pass, framed on whichever axis moved more. Warmth is the romance
+                // axis (#70): a swing between people already in love reads as a relationship, not just liking.
+                bool warmthAxis = magW >= magT;
+                float magnitude = warmthAxis ? magW : magT;
+                bool lovers = warmthAxis && RimWorld.LovePartnerRelationUtility.LovePartnerRelationExists(pawn, other);
+
+                string direction;
+                if (warmthAxis)
+                    direction = dW > 0 ? (lovers ? "grown closer to" : "grown fond of")
+                                       : (lovers ? "been drifting apart from" : "cooled on");
+                else
+                    direction = dT > 0 ? "come to rely on" : "stopped trusting";
+
                 var point = new TalkingPoint
                 {
                     subjectMemId = key,
                     subjectSummary = $"how they've {direction} {other.LabelShort} lately",
                     salience = Mathf.Clamp(magnitude / 50f, 0.2f, 0.9f),
-                    register = magnitude >= BondShiftDeep ? PointRegister.DeepTalk : PointRegister.ChitChat,
+                    register = (lovers || magnitude >= BondShiftDeep) ? PointRegister.DeepTalk : PointRegister.ChitChat,
                     audience = AudienceKind.Not,
                     audiencePawnId = other.ThingID,
                     formedTick = nowTick
                 };
-                if (agenda.Add(point)) trace?.Add($"bond {direction} {other.LabelShort} ({magnitude:F0})");
+                if (agenda.Add(point)) trace?.Add($"bond {direction} {other.LabelShort} ({magnitude:F0}{(warmthAxis ? "w" : "t")})");
             }
         }
 
