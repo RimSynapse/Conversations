@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Verse;
 using RimWorld;
 using RimSynapse.Comps;
@@ -176,14 +177,24 @@ namespace RimSynapse.Conversations.Generation
             // been busy with" reads as machine output and drags the model's register with it (#44).
             foreach (var rawPart in summary.Split(','))
             {
-                string job = System.Text.RegularExpressions.Regex
-                    .Replace(rawPart, @"\s*\([^)]*\)", "").Trim();
+                string job = StripTrailingPercent(rawPart.Trim());
                 if (string.IsNullOrEmpty(job)) continue;
                 string lower = job.ToLowerInvariant();
                 if (MundaneActivities.Any(m => lower == m || lower.StartsWith(m + " "))) continue;
                 return $"the {lower} they've been busy with";
             }
             return null;
+        }
+
+        // Core's activity summary appends a completion percentage to each job segment
+        // ("wandering (100%)"). The subject only wants the phrase, so drop a trailing " (NN%)".
+        private static readonly Regex TrailingPercent = new Regex(@"\s*\(\d+(?:\.\d+)?%\)$", RegexOptions.Compiled);
+
+        /// <summary>Strips a trailing progress annotation like " (100%)" from an activity phrase.</summary>
+        public static string StripTrailingPercent(string phrase)
+        {
+            if (string.IsNullOrEmpty(phrase)) return phrase;
+            return TrailingPercent.Replace(phrase, string.Empty).TrimEnd();
         }
 
         /// <summary>The single most pressing physical/emotional state, as a concrete phrase, or null if fine.</summary>

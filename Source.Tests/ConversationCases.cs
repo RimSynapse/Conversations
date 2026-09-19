@@ -5,6 +5,7 @@ using Verse;
 using RimSynapse.Comps;
 using RimSynapse.Models;
 using RimSynapse.Conversations;
+using RimSynapse.Conversations.Generation;
 using RimSynapse.Conversations.Patches;
 using RimAgentic.Testing;
 
@@ -206,6 +207,22 @@ namespace RimSynapse.Conversations.Tests
                 return $"deep=\"{deep.summary}\", chit=\"{chit.summary}\", avoid excluded";
             });
 
+            // Activity-subject cleanup: Core's summary appends a completion percentage to each job
+            // segment ("wandering (100%)"); the subject wants only the phrase, so RecentActivity strips
+            // a trailing " (NN%)". Guards that it drops the annotation, keeps non-percent parens, and
+            // is a no-op when there is nothing to strip.
+            yield return new SynapseTestCase("Conversations_ActivityStripsTrailingPercent", () =>
+            {
+                Assert.Equal("wandering", ConversationBeatResolver.StripTrailingPercent("wandering (100%)"),
+                    "a trailing (100%) is stripped");
+                Assert.Equal("hauling steel", ConversationBeatResolver.StripTrailingPercent("hauling steel (42.5%)"),
+                    "a fractional percentage is stripped");
+                Assert.Equal("wandering", ConversationBeatResolver.StripTrailingPercent("wandering"),
+                    "no annotation is a no-op");
+                Assert.Equal("talking (to Randy)", ConversationBeatResolver.StripTrailingPercent("talking (to Randy)"),
+                    "a non-percent parenthetical is left intact");
+                return "strip + fractional + no-op + non-percent-paren ok";
+            });
         }
     }
 }
