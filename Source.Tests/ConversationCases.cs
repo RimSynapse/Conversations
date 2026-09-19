@@ -223,6 +223,42 @@ namespace RimSynapse.Conversations.Tests
                     "a non-percent parenthetical is left intact");
                 return "strip + fractional + no-op + non-percent-paren ok";
             });
+
+            // Multiway record model (#40): a conversation is a participant SET, joins are idempotent and
+            // order-preserving, and each pawn sees the correct "others". This is the shape that replaced the
+            // pawnAId/pawnBId pair the old history was locked to.
+            yield return new SynapseTestCase("Conversations_MultiwayParticipants", () =>
+            {
+                var conv = new PawnConversation("A", "B", 0);
+                Assert.Equal(2, conv.participantIds.Count, "a pair starts with two participants");
+                Assert.True(conv.Involves("A") && conv.Involves("B"), "both pair members are involved");
+                Assert.False(conv.Involves("C"), "a stranger is not involved");
+
+                Assert.True(conv.AddParticipant("C"), "a third participant is added");
+                Assert.False(conv.AddParticipant("C"), "adding the same participant again is a no-op");
+                Assert.Equal(3, conv.participantIds.Count, "the set holds three, without duplication");
+                Assert.Equal("C", conv.participantIds[2], "join order is preserved");
+
+                var othersOfB = conv.Others("B").ToList();
+                Assert.Equal(2, othersOfB.Count, "B sees the other two");
+                Assert.True(othersOfB.Contains("A") && othersOfB.Contains("C"), "B's others are A and C");
+                return "pair -> 3 participants, idempotent add, order kept, Others correct";
+            });
+
+            // Save-compat: a record scribed before #40 carried pawnAId/pawnBId and no participant list.
+            // Loading must migrate that legacy pair into participantIds so old saves keep their history.
+            yield return new SynapseTestCase("Conversations_LegacyPairMigrates", () =>
+            {
+                var legacy = new PawnConversation();
+                legacy.participantIds.Clear();          // an old save had no participant list
+                legacy.SetLegacyPairForTest("X", "Y");  // it had pawnAId/pawnBId instead
+                legacy.MigrateLegacyPairIfNeeded();
+                Assert.True(legacy.Involves("X") && legacy.Involves("Y"), "the legacy pair became participants");
+                Assert.Equal(2, legacy.participantIds.Count, "exactly the two legacy ids, no extras");
+                legacy.MigrateLegacyPairIfNeeded(); // idempotent — a second load pass adds nothing
+                Assert.Equal(2, legacy.participantIds.Count, "migration is idempotent");
+                return "legacy pawnAId/pawnBId migrated into the participant set";
+            });
         }
     }
 }

@@ -134,19 +134,53 @@ namespace RimSynapse.Conversations
             }
         }
 
-        /// <summary>The pair's conversation record, restarted when the last exchange is older than the
-        /// retention window (#40) — the thread is stale, a new one begins.</summary>
+        /// <summary>The conversation these two belong to right now (#40 multiway). A settled, co-present
+        /// pawn joins the room's ACTIVE conversation rather than starting a private pair: if either pawn is
+        /// already in an in-window conversation whose live participants are co-present with <paramref name="a"/>,
+        /// both are added to it (the kitchen/dining merge). Otherwise a fresh record begins. A stale record
+        /// (older than the retention window) is not reused — the thread has ended.</summary>
         public static PawnConversation GetOrStartConversation(SynapseConversationsWorldComponent wc, Pawn a, Pawn b, int nowTick)
         {
             string idA = a.ThingID, idB = b.ThingID;
-            var conv = wc.pawnConversations.FirstOrDefault(c => (c.pawnAId == idA && c.pawnBId == idB) || (c.pawnAId == idB && c.pawnBId == idA));
             float hours = RimSynapseConversationsMod.Settings?.conversationHistoryHours ?? 24f;
             int maxAge = (int)(hours * 2500f);
-            if (conv != null && nowTick - conv.lastTick <= maxAge) return conv;
-            if (conv != null) wc.pawnConversations.Remove(conv);
-            conv = new PawnConversation(idA, idB, nowTick);
+
+            PawnConversation active = null;
+            for (int i = 0; i < wc.pawnConversations.Count; i++)
+            {
+                var c = wc.pawnConversations[i];
+                if (c == null || nowTick - c.lastTick > maxAge) continue;
+                if (!c.Involves(idA) && !c.Involves(idB)) continue;
+                if (ParticipantCoPresent(c, a)) { active = c; break; }
+            }
+
+            if (active != null)
+            {
+                active.AddParticipant(idA);
+                active.AddParticipant(idB);
+                return active;
+            }
+
+            // Drop any stale record still keyed on either pawn before starting fresh, so the list stays lean.
+            wc.pawnConversations.RemoveAll(c => c != null && nowTick - c.lastTick > maxAge && (c.Involves(idA) || c.Involves(idB)));
+            var conv = new PawnConversation(idA, idB, nowTick);
             wc.pawnConversations.Add(conv);
             return conv;
+        }
+
+        /// <summary>Is any currently-spawned participant of this conversation co-present with the joiner?
+        /// Guards the room-merge so two genuinely separate rooms sharing a pawn don't fuse. A record whose
+        /// other participants have all left is NOT joinable — merging a new partner into it would splice an
+        /// unrelated, different-room exchange onto a stale thread; that pair starts fresh instead.</summary>
+        private static bool ParticipantCoPresent(PawnConversation c, Pawn joiner)
+        {
+            foreach (var pid in c.participantIds)
+            {
+                if (pid == joiner.ThingID) continue;
+                var p = PawnFromId(pid);
+                if (p != null && Generation.ConversationPresence.CoPresent(joiner, p)) return true;
+            }
+            return false;
         }
 
         private static string PairKey(string a, string b)

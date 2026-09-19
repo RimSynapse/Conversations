@@ -87,8 +87,11 @@ namespace RimSynapse.Conversations.Generation
             if (!InTalkingMood(speaker, out why)) { why = "speaker " + why; return false; }
             if (!InTalkingMood(listener, out why)) { why = "listener " + why; return false; }
             if (speaker.Map != listener.Map) { why = "different maps"; return false; }
-            float d = speaker.Position.DistanceTo(listener.Position);
-            if (d > ServeRadius) { why = $"out of range ({d:F1})"; return false; }
+            // Presence gate (#40): same indoor room, or within radius outdoors, and both settled — not
+            // transiting. Replaces the raw 8-cell radius that fired lines as pawns walked through a room.
+            if (!ConversationPresence.Settled(speaker)) { why = "speaker transiting"; return false; }
+            if (!ConversationPresence.Settled(listener)) { why = "listener transiting"; return false; }
+            if (!ConversationPresence.CoPresent(speaker, listener)) { why = "not co-present"; return false; }
             if (mc != null && (mc.IsInPlayback(speaker) || mc.IsInPlayback(listener))) { why = "mid-exchange"; return false; }
             int cooldown = Mathf.Max(0, Mathf.RoundToInt((RimSynapseConversationsMod.Settings?.dialogueCooldownHours ?? 1f) * 2500f));
             if (cooldown > 0 && lastServedByPair != null
@@ -132,9 +135,12 @@ namespace RimSynapse.Conversations.Generation
             var lines = new List<SynapseConversationMessage>();
             if (conv.lines != null && conv.lines.Count > 0)
             {
+                // Keep each line's own speaker (#40): a pooled exchange can name any participant, not just
+                // the pair. The old code rewrote every non-listener line to the initiator, which is exactly
+                // what collapsed multiway conversations back to two speakers.
                 foreach (var l in conv.lines)
                     if (l != null && !string.IsNullOrWhiteSpace(l.text))
-                        lines.Add(new SynapseConversationMessage(l.speakerId == idB ? idB : idA, l.text, 0));
+                        lines.Add(new SynapseConversationMessage(string.IsNullOrEmpty(l.speakerId) ? idA : l.speakerId, l.text, 0));
             }
             else
             {

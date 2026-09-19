@@ -232,5 +232,73 @@ namespace RimSynapse.Conversations.UI
                 RimSynapse.SynapseLogger.Info(Cat, $"  {a} -> {b}: {kv.Value}");
             }
         }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        // Multiway (#40) validation
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>Presence gate dump: for the acting pawn, print its room, whether it is Settled (vs.
+        /// transiting), and the Settled / CoPresent verdict against every other spawned humanlike. This is
+        /// how you confirm the room-not-radius gate behaves — no radius number in sight indoors.</summary>
+        [DebugAction("RimSynapse", "Conversations: Presence verdicts (Log)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void DumpPresence(Pawn p)
+        {
+            if (p == null || p.Map == null) return;
+            var room = Generation.ConversationPresence.RoomOf(p);
+            string roomDesc = room == null ? "none" : (room.PsychologicallyOutdoors ? "outdoors" : $"indoor#{room.ID}");
+            RimSynapse.SynapseLogger.Info(Cat, $"--- Presence for {p.LabelShort}: room={roomDesc}, settled={Generation.ConversationPresence.Settled(p)} ---");
+            foreach (var o in p.Map.mapPawns.AllPawnsSpawned)
+            {
+                if (o == p || !o.RaceProps.Humanlike) continue;
+                var oRoom = Generation.ConversationPresence.RoomOf(o);
+                string oDesc = oRoom == null ? "none" : (oRoom.PsychologicallyOutdoors ? "outdoors" : $"#{oRoom.ID}");
+                RimSynapse.SynapseLogger.Info(Cat,
+                    $"  {o.LabelShort}: room={oDesc} settled={Generation.ConversationPresence.Settled(o)} coPresent={Generation.ConversationPresence.CoPresent(p, o)} dist={p.Position.DistanceTo(o.Position):F1}");
+            }
+        }
+
+        /// <summary>Force a multiway record without an LLM: take the acting pawn plus its two nearest
+        /// spawned humanlikes, run them through GetOrStartConversation one pair at a time (so the room-merge
+        /// path is exercised), append one line from each, then dump. Confirms three DISTINCT senders land in
+        /// ONE record with three participants — the thing the old speakerId-collapse and pair-keying broke.</summary>
+        [DebugAction("RimSynapse", "Conversations: Force 3-way record + dump (Log)", actionType = DebugActionType.ToolMapForPawns, allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ForceThreeWayRecord(Pawn p)
+        {
+            if (p == null || p.Map == null) return;
+            var wc = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
+            if (wc == null) { RimSynapse.SynapseLogger.Info(Cat, "[RimSynapse] No conversations world component."); return; }
+
+            var others = p.Map.mapPawns.AllPawnsSpawned
+                .Where(o => o != p && o.RaceProps.Humanlike && !o.Dead)
+                .OrderBy(o => o.Position.DistanceToSquared(p.Position))
+                .Take(2).ToList();
+            if (others.Count < 2) { RimSynapse.SynapseLogger.Info(Cat, "[RimSynapse] Need two other humanlikes near the acting pawn."); return; }
+
+            Pawn b = others[0], c = others[1];
+            int now = Find.TickManager.TicksGame;
+
+            // Pair 1 (p,b) starts the record; pair 2 (b,c) should MERGE into it via the room path when
+            // co-present. If they are not co-present the merge won't fire — that is the gate working, and
+            // the dump will show it as two records.
+            var conv1 = SynapseConversationsWorldComponent.GetOrStartConversation(wc, p, b, now);
+            conv1.messages.Add(new SynapseConversationMessage(p.ThingID, "[debug] p opens", now));
+            conv1.messages.Add(new SynapseConversationMessage(b.ThingID, "[debug] b replies", now));
+            conv1.lastTick = now;
+
+            var conv2 = SynapseConversationsWorldComponent.GetOrStartConversation(wc, b, c, now);
+            conv2.messages.Add(new SynapseConversationMessage(c.ThingID, "[debug] c chimes in", now));
+            conv2.lastTick = now;
+
+            bool merged = ReferenceEquals(conv1, conv2);
+            RimSynapse.SynapseLogger.Info(Cat,
+                $"--- Force 3-way: {p.LabelShort} + {b.LabelShort} + {c.LabelShort} — merged={merged} (co-present gate) ---");
+            var target = conv2;
+            RimSynapse.SynapseLogger.Info(Cat, $"  record participants ({target.participantIds.Count}): {string.Join(", ", target.participantIds.Select(id => SynapseConversationsWorldComponent.PawnFromId(id)?.LabelShort ?? id))}");
+            var senders = target.messages.Select(m => m.sender).Distinct().ToList();
+            RimSynapse.SynapseLogger.Info(Cat, $"  distinct senders in record: {senders.Count}");
+            foreach (var m in target.messages)
+                RimSynapse.SynapseLogger.Info(Cat, $"    {SynapseConversationsWorldComponent.PawnFromId(m.sender)?.LabelShort ?? m.sender}: {m.message}");
+            RimSynapse.SynapseLogger.Info(Cat, $"  VERDICT: {(merged && target.participantIds.Count == 3 && senders.Count == 3 ? "PASS — one record, three participants, three senders" : "see co-present gate above")}");
+        }
     }
 }

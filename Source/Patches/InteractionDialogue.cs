@@ -67,7 +67,7 @@ namespace RimSynapse.Conversations.Patches
             string idA = initiator.ThingID;
             string idB = recipient.ThingID;
             PawnConversation conversation = worldComp.pawnConversations.FirstOrDefault(c =>
-                (c.pawnAId == idA && c.pawnBId == idB) || (c.pawnAId == idB && c.pawnBId == idA));
+                c.Involves(idA) && c.Involves(idB));
 
             int currentTick = Find.TickManager.TicksGame;
             bool isContinuation = false;

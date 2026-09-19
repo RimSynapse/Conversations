@@ -52,10 +52,12 @@ namespace RimSynapse.Conversations
             {
                 var pb = activePlaybacks[i];
 
-                // End the exchange if a participant is gone or they've drifted out of conversational range.
+                // End the exchange if a participant is gone or has stopped being co-present (#40): once a
+                // pawn leaves the room (or, outdoors, drifts out of range) the conversation ends there rather
+                // than "carrying" as they walk off — the legibility fix for lines trailing a transiting pawn.
                 if (pb.initiator == null || pb.recipient == null ||
                     !pb.initiator.Spawned || !pb.recipient.Spawned || pb.initiator.Dead || pb.recipient.Dead ||
-                    pb.initiator.Position.DistanceTo(pb.recipient.Position) > MaxConversationRangeTiles)
+                    !Generation.ConversationPresence.CoPresent(pb.initiator, pb.recipient))
                 {
                     activePlaybacks.RemoveAt(i);
                     continue;

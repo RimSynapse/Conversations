@@ -285,7 +285,7 @@ namespace RimSynapse.Conversations.UI
 
             string id = p.ThingID;
             var conv = wc.pawnConversations
-                .Where(c => c.pawnAId == id || c.pawnBId == id)
+                .Where(c => c.Involves(id))
                 .OrderByDescending(c => c.lastTick)
                 .FirstOrDefault();
             if (conv == null || conv.messages == null || conv.messages.Count == 0)
@@ -294,8 +294,9 @@ namespace RimSynapse.Conversations.UI
                 return;
             }
 
-            Pawn other = SynapseConversationsWorldComponent.PawnFromId(conv.pawnAId == id ? conv.pawnBId : conv.pawnAId);
-            RimSynapse.SynapseLogger.Info("conversations", $"--- Last exchange: {p.LabelShort} & {other?.LabelShort ?? "?"} (recentTopics: {string.Join(", ", conv.recentTopics ?? new System.Collections.Generic.List<string>())}) ---");
+            var others = conv.Others(id)
+                .Select(pid => SynapseConversationsWorldComponent.PawnFromId(pid)?.LabelShort ?? pid);
+            RimSynapse.SynapseLogger.Info("conversations", $"--- Last exchange: {p.LabelShort} & {string.Join(", ", others)} ({conv.participantIds.Count} participants; recentTopics: {string.Join(", ", conv.recentTopics ?? new System.Collections.Generic.List<string>())}) ---");
             foreach (var m in conv.messages)
             {
                 Pawn spk = SynapseConversationsWorldComponent.PawnFromId(m.sender);
