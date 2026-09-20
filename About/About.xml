@@ -33,7 +33,7 @@
     </loadAfter>
     <description>
 Discord Community: https://discord.gg/eVBebZ2N9s
-Version: v0.10.0-rc1 (Target: RimWorld 1.6)
+Version: v0.10.0-rc2 (Target: RimWorld 1.6)
 
 RimSynapse - Conversations
 Official Wiki and Documentation: https://github.com/RimSynapse/Conversations/wiki
@@ -56,6 +56,7 @@ These ship when they are ready - no dates.
 - NEW - Acts of care become things pawns talk about: a doctor tending a patient, and (with Biotech) nursing an infant or teaching a child, each leave a topic both pawns can raise - including thanking their carer to their face.
 - NEW - More of who a pawn is surfaces in talk: how a relationship has warmed or cooled (including romance), what they're living with health-wise, and - with Ideology - musing on or quietly questioning their own precepts and feeling their faith shift.
 - NEW - Prisoners, slaves and guests are first-class conversation participants with their own Dialogue History, and outsiders (raiders, traders, visitors) get cheap authored/ambient barks.
+- NEW - The Dialogue History window is a session feed: talk auto-groups into discrete conversations (and overheard) as a chronological stream of blocks, each showing who took part, with every speaker in their own colour.
 - IMPROVED - One shared prompt drives both the game and the offline Prompt Lab, and colonists keep speaking in plain, everyday words rather than clinical report-speak.
 - Requires RimSynapse Core v0.10.0 and RimSynapse Psychology v0.10.0.
 
