@@ -9,8 +9,11 @@ using RimSynapse.Models;
 namespace RimSynapse.Conversations
 {
     /// <summary>
-    /// Dual-pane window that resembles a personal chat application,
-    /// displaying a list of contacts on the left and a Discord-style chat layout on the right.
+    /// Dual-pane chat-style window: the left pane lists the pawn's conversations (each labelled by its
+    /// other participants, groups folded to "A, B (+N)"), the right pane shows the selected conversation as
+    /// a Discord-style thread. Multiway-aware (#40): a participant roster header names everyone in the
+    /// conversation and each speaker's lines are drawn in that speaker's own colour, so a three-way reads as
+    /// three distinct people rather than "me and one contact".
     /// </summary>
     public class Dialog_PawnConversationHistory : Window
     {
@@ -126,11 +129,17 @@ namespace RimSynapse.Conversations
 
                     if (conversation != null && conversation.messages.Count > 0)
                     {
+                        // Participant roster header (#40 legibility): show EVERYONE in this conversation —
+                        // avatars + names in each speaker's own colour — so a three-way reads as three
+                        // people at a glance, not "me and one contact".
+                        float rosterH = DrawParticipantRoster(conversation, rightRect);
+                        Rect chatArea = new Rect(rightRect.x, rightRect.y + rosterH, rightRect.width, rightRect.height - rosterH);
+
                         float rightScrollWidth = rightPaneWidth - 16f;
                         float totalChatHeight = CalculateChatScrollHeight(conversation.messages, rightScrollWidth, pawn);
                         Rect rightViewRect = new Rect(0f, 0f, rightScrollWidth, totalChatHeight);
-                        
-                        Rect rightScrollRect = new Rect(rightRect.x, rightRect.y, rightRect.width, rightRect.height);
+
+                        Rect rightScrollRect = new Rect(chatArea.x, chatArea.y, chatArea.width, chatArea.height);
 
                         Widgets.BeginScrollView(rightScrollRect, ref rightScrollPosition, rightViewRect);
                         float chatY = 5f;
@@ -186,7 +195,7 @@ namespace RimSynapse.Conversations
                             Rect nameRect = new Rect(52f, chatY, nameSize.x, 20f);
                             
                             Text.Font = GameFont.Small;
-                            GUI.color = isSenderSelf ? new Color(0.35f, 0.65f, 1.0f) : new Color(0.85f, 0.85f, 0.85f);
+                            GUI.color = SpeakerColor(conversation, msg.sender, isSenderSelf);
                             Widgets.Label(nameRect, nameStr);
 
                             string timeStr = FormatTimeOnly(msg.gameTick, pawn);
@@ -284,17 +293,7 @@ namespace RimSynapse.Conversations
                         if (m.tags.Count > 2) recipient = FindPawnById(m.tags[2]);
 
                         // Parse the reply out of the quotes in summary
-                        string reply = "";
-                        int firstQuote = m.summary.IndexOf('"');
-                        int lastQuote = m.summary.LastIndexOf('"');
-                        if (firstQuote >= 0 && lastQuote > firstQuote)
-                        {
-                            reply = m.summary.Substring(firstQuote + 1, lastQuote - firstQuote - 1);
-                        }
-                        else
-                        {
-                            reply = m.summary;
-                        }
+                        string reply = ExtractOverheardReply(m.summary);
 
                         // Draw Avatar
                         Rect avatarRect = new Rect(10f, chatY, 32f, 32f);
@@ -393,17 +392,7 @@ namespace RimSynapse.Conversations
                     total += 35f;
                 }
 
-                string reply = "";
-                int firstQuote = m.summary.IndexOf('"');
-                int lastQuote = m.summary.LastIndexOf('"');
-                if (firstQuote >= 0 && lastQuote > firstQuote)
-                {
-                    reply = m.summary.Substring(firstQuote + 1, lastQuote - firstQuote - 1);
-                }
-                else
-                {
-                    reply = m.summary;
-                }
+                string reply = ExtractOverheardReply(m.summary);
 
                 Text.Font = GameFont.Small;
                 float textHeight = Text.CalcHeight(reply, textWidth);
@@ -452,13 +441,20 @@ namespace RimSynapse.Conversations
                 longitude = Find.WorldGrid.LongLatOf(pawn.Tile).x;
             }
             long absTick = RimSynapse.Utils.SynapseDateHelper.GameTickToAbsTick(gameTick);
-            
+
             int hour = GenDate.HourOfDay(absTick, longitude);
             int pmHour = hour % 12;
             if (pmHour == 0) pmHour = 12;
             string amPm = hour >= 12 ? "PM" : "AM";
 
-            return $"{pmHour}:00 {amPm}";
+            // Minute-of-hour derived from the sub-hour tick fraction (2500 ticks = 1 hour), longitude-adjusted
+            // to match the hour. Two messages in the same hour now sort visibly instead of both reading ":00".
+            long localTicks = absTick + (long)(longitude * (60000f / 360f));
+            long inHour = localTicks % 2500L;
+            if (inHour < 0) inHour += 2500L;
+            int minute = Mathf.Clamp((int)(inHour * 60L / 2500L), 0, 59);
+
+            return $"{pmHour}:{minute:00} {amPm}";
         }
 
         /// <summary>Left-pane label for a conversation: the other participants' names, a group folded to
@@ -484,6 +480,72 @@ namespace RimSynapse.Conversations
 
             var worldPawn = Find.WorldPawns?.AllPawnsAliveOrDead?.FirstOrDefault(x => x.ThingID == id);
             return worldPawn;
+        }
+
+        // Distinct colour per speaker so a multiway conversation is legible (#40): the viewing pawn is always
+        // blue; every other participant gets a stable colour by ThingID hash, so B and C never blur together.
+        private static readonly Color SelfColor = new Color(0.35f, 0.65f, 1.0f);
+        private static readonly Color UnknownColor = new Color(0.85f, 0.85f, 0.85f);
+        private static readonly Color[] OtherPalette =
+        {
+            new Color(0.55f, 0.85f, 0.55f), // green
+            new Color(0.95f, 0.78f, 0.45f), // amber
+            new Color(0.88f, 0.60f, 0.88f), // orchid
+            new Color(0.55f, 0.85f, 0.85f), // teal
+            new Color(0.95f, 0.62f, 0.55f), // coral
+            new Color(0.75f, 0.75f, 0.98f), // periwinkle
+        };
+
+        private static Color SpeakerColor(PawnConversation conv, string senderId, bool isSelf)
+        {
+            if (isSelf) return SelfColor;
+            if (string.IsNullOrEmpty(senderId)) return UnknownColor;
+            int h = System.Math.Abs(senderId.GetHashCode());
+            return OtherPalette[h % OtherPalette.Length];
+        }
+
+        /// <summary>Fixed header strip listing every participant (avatar + name in its speaker colour), so the
+        /// full roster of a conversation is visible above the scrolling thread. Returns the height it used.</summary>
+        private float DrawParticipantRoster(PawnConversation conv, Rect rightRect)
+        {
+            const float h = 40f;
+            var rosterRect = new Rect(rightRect.x, rightRect.y, rightRect.width, h);
+            Widgets.DrawLineHorizontal(rosterRect.x, rosterRect.yMax - 1f, rosterRect.width);
+
+            float x = rosterRect.x + 4f;
+            var originalFont = Text.Font;
+            var originalColor = GUI.color;
+            Text.Font = GameFont.Tiny;
+            foreach (var pid in conv.participantIds)
+            {
+                Pawn p = pid == pawn.ThingID ? pawn : FindPawnById(pid);
+                string label = p != null ? p.Name.ToStringShort : pid;
+                float labelW = Text.CalcSize(label).x;
+                float chipW = 26f + labelW + 8f;
+                if (x + chipW > rosterRect.xMax) break; // don't overflow the strip
+
+                if (p != null) Widgets.ThingIcon(new Rect(x, rosterRect.y + 6f, 24f, 24f), p);
+                GUI.color = SpeakerColor(conv, pid, pid == pawn.ThingID);
+                Widgets.Label(new Rect(x + 26f, rosterRect.y + 11f, labelW + 4f, 20f), label);
+                x += chipW;
+            }
+            GUI.color = originalColor;
+            Text.Font = originalFont;
+            return h;
+        }
+
+        /// <summary>Pull the spoken line out of an "overheard" memory summary. Prefers the LAST quoted run
+        /// (the quote is the reply; earlier quotes may be names or nested asides), and tolerates an unbalanced
+        /// or absent quote by falling back to the whole summary rather than slicing garbage.</summary>
+        private static string ExtractOverheardReply(string summary)
+        {
+            if (string.IsNullOrEmpty(summary)) return summary ?? "";
+            int close = summary.LastIndexOf('"');
+            if (close <= 0) return summary.Trim();
+            int open = summary.LastIndexOf('"', close - 1);
+            if (open < 0) return summary.Trim();
+            string inner = summary.Substring(open + 1, close - open - 1).Trim();
+            return inner.Length > 0 ? inner : summary.Trim();
         }
     }
 }
