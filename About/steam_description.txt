@@ -1,5 +1,5 @@
 [b]Discord Community:[/b] [url=https://discord.gg/eVBebZ2N9s]https://discord.gg/eVBebZ2N9s[/url]
-[b]Version:[/b] v0.9.4 (Target: RimWorld 1.6)
+[b]Version:[/b] v0.10.0 (Target: RimWorld 1.6)
 
 [h1]RimSynapse - Conversations[/h1]
 [b][url=https://github.com/RimSynapse/Conversations/wiki]Official Wiki and Documentation[/url][/b]
@@ -31,6 +31,17 @@ These ship when they are ready - no dates.
 
 ---
 
+[h2]Changelog (v0.10.0) - Motivated Dialogue[/h2]
+[list]
+[*] NEW - Pawns now talk from a per-pawn agenda of talking points formed from their own psychology - memories, burdens, recent work, relationships - instead of picking from canned topics. What they bring up is driven by what actually happened to them.
+[*] NEW - Multiway conversations: pawns settled together in a room hold one shared conversation, gated on genuinely being present and settled, so lines no longer fire at someone passing through, and a conversation ends when a participant leaves the room.
+[*] NEW - Acts of care become talk: a doctor tending a patient, and (with Biotech) nursing an infant or teaching a child, each leave a topic both pawns can raise.
+[*] NEW - More of who a pawn is surfaces: how a relationship has warmed or cooled (including romance), what they are living with health-wise, and (with Ideology) musing on or quietly questioning their own precepts and shifting faith.
+[*] NEW - Prisoners, slaves and guests are first-class conversation participants with their own Dialogue History; outsiders (raiders, traders, visitors) get cheap authored/ambient barks.
+[*] NEW - The Dialogue History window is a session feed: talk auto-groups into discrete conversations and overheard events as a chronological stream, each showing who took part, every speaker in their own colour.
+[*] Requires RimSynapse Core v0.10.0 and RimSynapse Psychology v0.10.0.
+[/list]
+
 [h2]Changelog (v0.9.4) - Better small talk[/h2]
 [list]
 [*] Fixed: conversation subjects no longer quote internal activity statistics - "the lying down (39%) they've been busy with" becomes a clean, natural topic, and dull activities like sleeping or wandering are skipped in favor of something worth mentioning.
@@ -58,14 +69,6 @@ These ship when they are ready - no dates.
 [*] Requires RimSynapse Core v0.9.0.
 [/list]
 
-[h2]Changelog (v0.9.0) - Factions and Living Societies[/h2]
-[list]
-[*] NEW - Warden conversations: recruiting, converting, enslaving and suppressing a prisoner now play out as spoken exchanges grounded in that prisoner's real situation - their resistance, will, comfort, how they were captured, and (with Ideology) the belief clash. Persuasion can build a little rapport; coercion never does. Flavour only - it never changes the vanilla recruitment or conversion roll.
-[*] IMPROVED - Dialogue quality overhaul: before the model writes a line, an in-code agent picks one concrete beat - a real event, chore or need, and each speaker's angle on it - so colonists talk about actual specifics instead of interchangeable filler. Trust, familiarity and opinion shifts are computed in code for consistency.
-[*] NEW - Load-adaptive conversations: when the AI can't keep up (a big colony, a slower model, or high game speed), conversations quietly stop generating instead of piling up a backlog - relationships still evolve, you just don't pay for dialogue you can't watch. Speech bubbles still appear at normal speed.
-[*] CHANGED - The player-to-storyteller chat window has moved to RimSynapse Core. Conversations now owns pawn-to-pawn dialogue only.
-[*] Requires Core v0.9.0; saves and settings carry over unchanged.
-[/list]
 [b]Full version history:[/b] [url=https://github.com/RimSynapse/Conversations/wiki/Changelog]github.com/RimSynapse/Conversations/wiki[/url]
 
 ---
@@ -83,7 +86,8 @@ These ship when they are ready - no dates.
 
 [h2]Requirements[/h2]
 [list]
-[*] RimSynapse - Core (Must be loaded before this mod)
+[*] RimSynapse - Core v0.10.0 or newer (must be loaded before this mod)
+[*] RimSynapse - Psychology v0.10.0 or newer (required - dialogue is driven by pawn psychology)
 [*] Harmony
 [/list]
 

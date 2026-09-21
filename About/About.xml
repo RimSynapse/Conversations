@@ -33,7 +33,7 @@
     </loadAfter>
     <description>
 Discord Community: https://discord.gg/eVBebZ2N9s
-Version: v0.10.0-rc2 (Target: RimWorld 1.6)
+Version: v0.10.0 (Target: RimWorld 1.6)
 
 RimSynapse - Conversations
 Official Wiki and Documentation: https://github.com/RimSynapse/Conversations/wiki
@@ -50,7 +50,7 @@ Conversations tracks its own release milestones. What ships next is scoped to di
 Backlog: group conversations (three-way and small-group dialogue with turn-taking and reactions from listeners in earshot), player-to-pawn direct dialogue, more Universe Actions (relationship shifts, inspire-to-job), and additional environmental / event triggers.
 These ship when they are ready - no dates.
 
---- Changelog (v0.10.0) - Motivated Dialogue (release candidate) ---
+--- Changelog (v0.10.0) - Motivated Dialogue ---
 - NEW - Colonists now talk from a per-pawn agenda of talking points formed from their own psychology - memories, burdens, recent work, relationships - instead of picking from canned topics. What a pawn brings up is driven by what actually happened to them.
 - NEW - Multiway conversations: pawns settled together in a room hold one shared conversation (the kitchen/dining table case) rather than a tangle of pairwise ones, gated on being genuinely present and settled - lines no longer fire at someone just passing through, and a conversation ends when a participant leaves the room.
 - NEW - Acts of care become things pawns talk about: a doctor tending a patient, and (with Biotech) nursing an infant or teaching a child, each leave a topic both pawns can raise - including thanking their carer to their face.
