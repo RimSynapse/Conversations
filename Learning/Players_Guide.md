@@ -110,7 +110,6 @@ Open the settings under Mod Settings → "RimSynapse - Conversations". The follo
 - Warden Conversation Cooldown — the minimum in-game time before the same warden and prisoner will generate another warden conversation (0 to 12 hours; default 2 hours). Warden work repeats very often, so this keeps the exchanges occasional. Only shown when warden conversations are enabled.
 - Speech Bubble Aesthetics — sliders for the bubble background's red, green, and blue tint, plus its transparency (alpha), letting you darken, lighten, or make the bubble more see-through.
 - Adjust Chat Topics — a checklist of every conversation topic, each labelled Deep Talk or Chitchat. Untick a topic to stop colonists ever bringing it up. Useful if you want to avoid heavy themes like grief, trauma, or mortality, or trim the small-talk topics you find repetitive.
-- Experimental: Pre-seed conversations — an off-by-default experimental option that pre-writes conversations in the background and serves them instantly. It is off because pre-written lines can reference stale context (the weather, or a pawn who has since gone indoors). With it off, every conversation is written fresh and current.
 - Open Encyclopedia — a button that opens the in-game RimSynapse reference window.
 
 A few behaviours run on sensible defaults and are not exposed as on-screen sliders, but are worth knowing about:

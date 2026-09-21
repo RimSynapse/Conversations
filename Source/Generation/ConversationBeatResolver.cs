@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Verse;
 using RimWorld;
 using RimSynapse.Comps;
@@ -83,23 +84,6 @@ namespace RimSynapse.Conversations.Generation
             };
         }
 
-        /// <summary>A beat for an environmental trigger (darkness, freezer, …). The caller already knows the
-        /// concrete subject — a phrase like "walking into the freezing cold freezer and complaining about the
-        /// chilling temperature" — so we skip subject selection and just wrap it as a casual, passing remark.
-        /// This routes environmental comments through the same thin, voice-led prompt as ordinary chit-chat,
-        /// instead of the retired heavy per-pawn dump (Conversations#44).</summary>
-        public static ConversationBeat EnvironmentalBeat(Pawn initiator, Pawn recipient, string type, string description)
-        {
-            return new ConversationBeat
-            {
-                subject = description,
-                initiatorStance = "remarking on it out loud as it happens, just in passing",
-                recipientStance = RecipientColour(recipient, initiator, "reacting to the offhand comment"),
-                tone = BeatTone.Casual,
-                isDeep = false,
-                topicKey = "env:" + (type ?? "ambient")
-            };
-        }
 
         // ── Event beat with involvement-aware framing ────────────────────
         private static ConversationBeat TryEventBeat(Pawn initiator, Pawn recipient, SynapseCorePawnComp initCore,
@@ -131,8 +115,9 @@ namespace RimSynapse.Conversations.Generation
         }
 
         /// <summary>A recent significant EventReflection the initiator lived through; deep talk takes the
-        /// weightiest, chit-chat a recent one. Honours the pair's recent-topic avoid set.</summary>
-        private static WeightedMemory SelectEventMemory(SynapseCorePawnComp core, bool deep, ICollection<string> avoid)
+        /// weightiest, chit-chat a recent one. Honours the pair's recent-topic avoid set. Public so the
+        /// in-game test suite exercises the LIVE selection (it previously tested a dead duplicate).</summary>
+        public static WeightedMemory SelectEventMemory(SynapseCorePawnComp core, bool deep, ICollection<string> avoid)
         {
             if (core?.memories == null || core.memories.Count == 0) return null;
             long nowAbs = Find.TickManager != null ? Find.TickManager.TicksAbs : 0L;
@@ -192,14 +177,24 @@ namespace RimSynapse.Conversations.Generation
             // been busy with" reads as machine output and drags the model's register with it (#44).
             foreach (var rawPart in summary.Split(','))
             {
-                string job = System.Text.RegularExpressions.Regex
-                    .Replace(rawPart, @"\s*\([^)]*\)", "").Trim();
+                string job = StripTrailingPercent(rawPart.Trim());
                 if (string.IsNullOrEmpty(job)) continue;
                 string lower = job.ToLowerInvariant();
                 if (MundaneActivities.Any(m => lower == m || lower.StartsWith(m + " "))) continue;
                 return $"the {lower} they've been busy with";
             }
             return null;
+        }
+
+        // Core's activity summary appends a completion percentage to each job segment
+        // ("wandering (100%)"). The subject only wants the phrase, so drop a trailing " (NN%)".
+        private static readonly Regex TrailingPercent = new Regex(@"\s*\(\d+(?:\.\d+)?%\)$", RegexOptions.Compiled);
+
+        /// <summary>Strips a trailing progress annotation like " (100%)" from an activity phrase.</summary>
+        public static string StripTrailingPercent(string phrase)
+        {
+            if (string.IsNullOrEmpty(phrase)) return phrase;
+            return TrailingPercent.Replace(phrase, string.Empty).TrimEnd();
         }
 
         /// <summary>The single most pressing physical/emotional state, as a concrete phrase, or null if fine.</summary>

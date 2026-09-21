@@ -12,12 +12,12 @@
   Interoperable with the community "Version Checker" mod.
 -->
 <Manifest>
-  <version>0.9.4</version>
-  <!-- Pinned to 0.9.1: labelless JobDefs are humanized in Core's pawn comp (Core 1fb8089), so
-       raw defNames no longer leak into dialogue. That fix lives entirely in Core, so this build
-       genuinely requires the Core that contains it. (0.9.0 hosts the migrated storyteller window,
-       Core #99; 0.9.1 adds the defName-leak fix.) -->
-  <coreVersion>0.9.1</coreVersion>
+  <version>0.10.0</version>
+  <!-- Pinned to Core 0.10.0: Conversations 0.10 hard-depends on Core 0.10 APIs — the MayConverse
+       participation predicate (prisoners/slaves/guests as conversation participants, #41) and the
+       0.10 memory-handling the talking-point agenda substrate reads. An older Core is genuinely
+       incompatible, so the floor must demand 0.10.0. Pairs with Psychology 0.10.0. -->
+  <coreVersion>0.10.0</coreVersion>
   <manifestUri>https://raw.githubusercontent.com/RimSynapse/Conversations/main/About/Manifest.xml</manifestUri>
   <downloadUri>https://github.com/RimSynapse/Conversations/releases/latest</downloadUri>
   <workshopId>3768363934</workshopId>

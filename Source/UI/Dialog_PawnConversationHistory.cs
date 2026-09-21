@@ -9,25 +9,36 @@ using RimSynapse.Models;
 namespace RimSynapse.Conversations
 {
     /// <summary>
-    /// Dual-pane window that resembles a personal chat application,
-    /// displaying a list of contacts on the left and a Discord-style chat layout on the right.
+    /// A session feed of one pawn's talk. Instead of a persistent per-contact thread split by day, the
+    /// pawn's conversation lines and the things they overheard are sliced into discrete SESSIONS — a burst
+    /// of talk bounded by a quiet gap (<see cref="SessionGapTicks"/>). The left pane lists sessions newest
+    /// first (type · time · participant avatars); the right pane is one continuous stream of every session
+    /// (each a block with a divider header), or just the selected session when one is picked. Conversations
+    /// and overheard live in the same stream but are always separate blocks — a conversation and an
+    /// overheard at the same moment are two threads, never interleaved line by line.
     /// </summary>
     public class Dialog_PawnConversationHistory : Window
     {
-        private enum ConversationTab
+        /// <summary>A quiet gap of more than this (game ticks; 2500 = 1 in-game hour, so ~30 min) ends a
+        /// session — the next line after the gap begins a new one.</summary>
+        private const int SessionGapTicks = 1250;
+
+        private struct Line { public string senderId; public string text; public int tick; }
+
+        private class Session
         {
-            Conversations,
-            Overheard
+            public bool overheard;
+            public int startTick;
+            public List<string> participantIds = new List<string>();
+            public List<Line> lines = new List<Line>();
         }
 
         private Pawn pawn;
-        private Pawn selectedRecipient;
-        private Vector2 leftScrollPosition = Vector2.zero;
-        private Vector2 rightScrollPosition = Vector2.zero;
-        private Vector2 overheardScrollPosition = Vector2.zero;
-        private ConversationTab currentTab = ConversationTab.Conversations;
+        private Session selected;                 // null = show the whole stream
+        private Vector2 leftScroll = Vector2.zero;
+        private Vector2 rightScroll = Vector2.zero;
 
-        public override Vector2 InitialSize => new Vector2(720f, 540f);
+        public override Vector2 InitialSize => new Vector2(760f, 560f);
 
         public Dialog_PawnConversationHistory(Pawn pawn)
         {
@@ -45,407 +56,285 @@ namespace RimSynapse.Conversations
             var worldComp = Find.World?.GetComponent<SynapseConversationsWorldComponent>();
             if (worldComp == null || pawn == null) return;
 
-            // Title
             Text.Font = GameFont.Medium;
             Widgets.Label(new Rect(0f, 0f, inRect.width, 35f), $"Chat History: {pawn.Name.ToStringShort}");
             Text.Font = GameFont.Small;
 
-            // Setup Tab space
-            float topY = 75f;
-            float paneHeight = inRect.height - topY - 15f;
-            Rect contentRect = new Rect(0f, topY, inRect.width, paneHeight);
+            var sessions = BuildSessions(worldComp);
 
-            List<TabRecord> tabs = new List<TabRecord>();
-            tabs.Add(new TabRecord("Conversations", () => currentTab = ConversationTab.Conversations, currentTab == ConversationTab.Conversations));
-            tabs.Add(new TabRecord("Overheard", () => currentTab = ConversationTab.Overheard, currentTab == ConversationTab.Overheard));
-            TabDrawer.DrawTabs(contentRect, tabs, 180f);
+            float topY = 44f;
+            float paneHeight = inRect.height - topY - 8f;
+            const float leftPaneWidth = 210f;
+            const float margin = 12f;
 
-            if (currentTab == ConversationTab.Conversations)
+            Rect leftRect = new Rect(0f, topY, leftPaneWidth, paneHeight);
+            Rect rightRect = new Rect(leftPaneWidth + margin, topY, inRect.width - leftPaneWidth - margin, paneHeight);
+            Widgets.DrawLineVertical(leftPaneWidth + margin / 2f, topY, paneHeight);
+
+            DrawSessionList(leftRect, sessions);
+            DrawStream(rightRect, sessions);
+        }
+
+        // ── Session assembly ────────────────────────────────────────────────────────────────────
+
+        /// <summary>Slice this pawn's conversation records and overheard memories into gap-bounded sessions,
+        /// merged and sorted newest first. Two different records (participant sets) never share a session even
+        /// when their times overlap, and overheard is always its own session type — so simultaneous talk and
+        /// eavesdropping stay separate threads.</summary>
+        private List<Session> BuildSessions(SynapseConversationsWorldComponent worldComp)
+        {
+            var result = new List<Session>();
+
+            // Conversation sessions — segment each record the pawn is in by the quiet gap.
+            foreach (var conv in worldComp.pawnConversations)
             {
-                // Render conversations list & chat
-                float leftPaneWidth = 200f;
-                float margin = 10f;
-                float rightPaneX = leftPaneWidth + margin;
-                float rightPaneWidth = contentRect.width - rightPaneX;
-
-                Rect leftRect = new Rect(contentRect.x, contentRect.y, leftPaneWidth, contentRect.height);
-                Rect rightRect = new Rect(contentRect.x + rightPaneX, contentRect.y, rightPaneWidth, contentRect.height);
-
-                // Dividing line
-                Widgets.DrawLineVertical(contentRect.x + leftPaneWidth + 5f, contentRect.y, contentRect.height);
-
-                // 1. Gather all contacts who had active chats with this pawn
-                var activeConvs = worldComp.pawnConversations
-                    .Where(c => c.pawnAId == pawn.ThingID || c.pawnBId == pawn.ThingID)
-                    .OrderByDescending(c => c.lastTick)
-                    .ToList();
-
-                var contacts = new List<Pawn>();
-                foreach (var conv in activeConvs)
+                if (conv == null || !conv.Involves(pawn.ThingID) || conv.messages == null || conv.messages.Count == 0)
+                    continue;
+                var ordered = conv.messages.Where(m => m != null).OrderBy(m => m.gameTick).ToList();
+                Session cur = null;
+                int lastTick = 0;
+                foreach (var m in ordered)
                 {
-                    string otherId = conv.pawnAId == pawn.ThingID ? conv.pawnBId : conv.pawnAId;
-                    Pawn otherPawn = FindPawnById(otherId);
-                    if (otherPawn != null && !contacts.Contains(otherPawn))
+                    if (cur == null || m.gameTick - lastTick > SessionGapTicks)
                     {
-                        contacts.Add(otherPawn);
+                        cur = new Session { overheard = false, startTick = m.gameTick, participantIds = new List<string>(conv.participantIds) };
+                        result.Add(cur);
                     }
-                }
-
-                // Default selection
-                if (selectedRecipient == null && contacts.Count > 0)
-                {
-                    selectedRecipient = contacts[0];
-                }
-
-                // 2. Render Left Panel (Contacts list)
-                float rowHeight = 45f;
-                float leftScrollHeight = contacts.Count * rowHeight;
-                Rect leftViewRect = new Rect(0f, 0f, leftPaneWidth - 16f, leftScrollHeight);
-
-                Widgets.BeginScrollView(leftRect, ref leftScrollPosition, leftViewRect);
-                float curY = 0f;
-                for (int i = 0; i < contacts.Count; i++)
-                {
-                    Pawn otherPawn = contacts[i];
-                    Rect rowRect = new Rect(0f, curY, leftPaneWidth - 16f, rowHeight - 4f);
-
-                    // Highlight states
-                    if (selectedRecipient == otherPawn)
-                    {
-                        Widgets.DrawHighlightSelected(rowRect);
-                    }
-                    else
-                    {
-                        Widgets.DrawHighlightIfMouseover(rowRect);
-                    }
-
-                    // Selection check
-                    if (Widgets.ButtonInvisible(rowRect, true))
-                    {
-                        selectedRecipient = otherPawn;
-                        rightScrollPosition = Vector2.zero;
-                    }
-
-                    // Render contact details
-                    Widgets.ThingIcon(new Rect(rowRect.x + 4f, rowRect.y + 4f, 32f, 32f), otherPawn);
-                    Rect labelRect = new Rect(rowRect.x + 40f, rowRect.y + 10f, rowRect.width - 44f, 25f);
-                    Widgets.Label(labelRect, otherPawn.Name.ToStringShort);
-
-                    curY += rowHeight;
-                }
-                Widgets.EndScrollView();
-
-                // 3. Render Right Panel (Discord-style Chat view)
-                if (selectedRecipient != null)
-                {
-                    PawnConversation conversation = activeConvs.FirstOrDefault(c => 
-                        c.pawnAId == selectedRecipient.ThingID || c.pawnBId == selectedRecipient.ThingID);
-
-                    if (conversation != null && conversation.messages.Count > 0)
-                    {
-                        float rightScrollWidth = rightPaneWidth - 16f;
-                        float totalChatHeight = CalculateChatScrollHeight(conversation.messages, rightScrollWidth, pawn);
-                        Rect rightViewRect = new Rect(0f, 0f, rightScrollWidth, totalChatHeight);
-                        
-                        Rect rightScrollRect = new Rect(rightRect.x, rightRect.y, rightRect.width, rightRect.height);
-
-                        Widgets.BeginScrollView(rightScrollRect, ref rightScrollPosition, rightViewRect);
-                        float chatY = 5f;
-                        string lastDateStr = null;
-
-                        foreach (var msg in conversation.messages)
-                        {
-                            // Draw Day Separator if date changed
-                            string dateStr = FormatDateOnly(msg.gameTick, pawn);
-                            if (dateStr != lastDateStr)
-                            {
-                                lastDateStr = dateStr;
-
-                                var originalFont = Text.Font;
-                                var originalAnchor = Text.Anchor;
-                                var originalColor = GUI.color;
-
-                                Text.Font = GameFont.Tiny;
-                                GUI.color = new Color(0.5f, 0.5f, 0.5f, 0.7f);
-                                float sepWidth = rightScrollWidth - 20f;
-
-                                float dateTextWidth = Text.CalcSize(dateStr).x + 10f;
-                                float lineStart = (sepWidth - dateTextWidth) / 2f;
-
-                                // draw line left
-                                Widgets.DrawLineHorizontal(10f, chatY + 8f, lineStart - 10f);
-                                // draw text
-                                Rect dateRect = new Rect(lineStart, chatY, dateTextWidth, 20f);
-                                Text.Anchor = TextAnchor.MiddleCenter;
-                                Widgets.Label(dateRect, dateStr);
-                                Text.Anchor = originalAnchor;
-                                // draw line right
-                                Widgets.DrawLineHorizontal(lineStart + dateTextWidth, chatY + 8f, sepWidth - (lineStart + dateTextWidth));
-
-                                GUI.color = originalColor;
-                                Text.Font = originalFont;
-                                chatY += 25f;
-                            }
-
-                            bool isSenderSelf = msg.sender == pawn.ThingID;
-                            Pawn senderPawn = isSenderSelf ? pawn : selectedRecipient;
-
-                            // Draw Avatar
-                            Rect avatarRect = new Rect(10f, chatY, 32f, 32f);
-                            if (senderPawn != null)
-                            {
-                                Widgets.ThingIcon(avatarRect, senderPawn);
-                            }
-
-                            // Draw Name + Timestamp
-                            string nameStr = senderPawn != null ? senderPawn.Name.ToStringShort : "Unknown";
-                            Vector2 nameSize = Text.CalcSize(nameStr);
-                            Rect nameRect = new Rect(52f, chatY, nameSize.x, 20f);
-                            
-                            Text.Font = GameFont.Small;
-                            GUI.color = isSenderSelf ? new Color(0.35f, 0.65f, 1.0f) : new Color(0.85f, 0.85f, 0.85f);
-                            Widgets.Label(nameRect, nameStr);
-
-                            string timeStr = FormatTimeOnly(msg.gameTick, pawn);
-                            Rect timeRect = new Rect(52f + nameSize.x + 8f, chatY + 2f, rightScrollWidth - 62f - nameSize.x, 18f);
-                            
-                            Text.Font = GameFont.Tiny;
-                            GUI.color = new Color(0.55f, 0.55f, 0.55f, 0.85f);
-                            Widgets.Label(timeRect, timeStr);
-
-                            // Draw Message Content
-                            float textWidth = rightScrollWidth - 62f;
-                            Text.Font = GameFont.Small;
-                            float textHeight = Text.CalcHeight(msg.message, textWidth);
-                            Rect textRect = new Rect(52f, chatY + 22f, textWidth, textHeight);
-
-                            GUI.color = new Color(0.92f, 0.92f, 0.95f);
-                            Widgets.Label(textRect, msg.message);
-
-                            GUI.color = Color.white;
-                            float entryHeight = Mathf.Max(32f, 22f + textHeight);
-                            chatY += entryHeight + 16f;
-                        }
-                        Widgets.EndScrollView();
-                    }
-                    else
-                    {
-                        Text.Anchor = TextAnchor.MiddleCenter;
-                        Widgets.Label(rightRect, "No messages in history.");
-                        Text.Anchor = TextAnchor.UpperLeft;
-                    }
-                }
-                else
-                {
-                    Text.Anchor = TextAnchor.MiddleCenter;
-                    Widgets.Label(rightRect, "Select a contact to view conversation history.");
-                    Text.Anchor = TextAnchor.UpperLeft;
+                    cur.lines.Add(new Line { senderId = m.sender, text = m.message, tick = m.gameTick });
+                    lastTick = m.gameTick;
                 }
             }
-            else if (currentTab == ConversationTab.Overheard)
+
+            // Overheard sessions — from Core memories tagged "overheard" (tags[1] = speaker, tags[2] = target).
+            var core = pawn.TryGetComp<SynapseCorePawnComp>();
+            if (core?.memories != null)
             {
-                // Render overheard statements
-                var coreComp = pawn.TryGetComp<SynapseCorePawnComp>();
-                var overheardMemories = coreComp?.memories?
-                    .Where(m => m.tags != null && m.tags.Contains("overheard"))
-                    .OrderByDescending(m => m.gameTick)
-                    .ToList() ?? new List<WeightedMemory>();
-
-                if (overheardMemories.Count > 0)
+                var heard = core.memories
+                    .Where(m => m != null && m.tags != null && m.tags.Contains("overheard") && !string.IsNullOrEmpty(m.summary))
+                    .OrderBy(m => m.gameTick).ToList();
+                Session cur = null;
+                int lastTick = 0;
+                foreach (var m in heard)
                 {
-                    float rightScrollWidth = contentRect.width - 16f;
-                    float totalChatHeight = CalculateOverheardScrollHeight(overheardMemories, rightScrollWidth, pawn);
-                    Rect rightViewRect = new Rect(0f, 0f, rightScrollWidth, totalChatHeight);
-
-                    Widgets.BeginScrollView(contentRect, ref overheardScrollPosition, rightViewRect);
-                    float chatY = 5f;
-                    string lastDateStr = null;
-
-                    foreach (var m in overheardMemories)
+                    string speaker = m.tags.Count > 1 ? m.tags[1] : null;
+                    string target = m.tags.Count > 2 ? m.tags[2] : null;
+                    if (cur == null || m.gameTick - lastTick > SessionGapTicks)
                     {
-                        // Draw Day Separator if date changed
-                        string dateStr = FormatDateOnly(m.gameTick, pawn);
-                        if (dateStr != lastDateStr)
-                        {
-                            lastDateStr = dateStr;
-
-                            var originalFont = Text.Font;
-                            var originalAnchor = Text.Anchor;
-                            var originalColor = GUI.color;
-
-                            Text.Font = GameFont.Tiny;
-                            GUI.color = new Color(0.5f, 0.5f, 0.5f, 0.7f);
-                            float sepWidth = rightScrollWidth - 20f;
-
-                            float dateTextWidth = Text.CalcSize(dateStr).x + 10f;
-                            float lineStart = (sepWidth - dateTextWidth) / 2f;
-
-                            // draw line left
-                            Widgets.DrawLineHorizontal(10f, chatY + 8f, lineStart - 10f);
-                            // draw text
-                            Rect dateRect = new Rect(lineStart, chatY, dateTextWidth, 20f);
-                            Text.Anchor = TextAnchor.MiddleCenter;
-                            Widgets.Label(dateRect, dateStr);
-                            Text.Anchor = originalAnchor;
-                            // draw line right
-                            Widgets.DrawLineHorizontal(lineStart + dateTextWidth, chatY + 8f, sepWidth - (lineStart + dateTextWidth));
-
-                            GUI.color = originalColor;
-                            Text.Font = originalFont;
-                            chatY += 25f;
-                        }
-
-                        Pawn initiator = null;
-                        Pawn recipient = null;
-                        if (m.tags.Count > 1) initiator = FindPawnById(m.tags[1]);
-                        if (m.tags.Count > 2) recipient = FindPawnById(m.tags[2]);
-
-                        // Parse the reply out of the quotes in summary
-                        string reply = "";
-                        int firstQuote = m.summary.IndexOf('"');
-                        int lastQuote = m.summary.LastIndexOf('"');
-                        if (firstQuote >= 0 && lastQuote > firstQuote)
-                        {
-                            reply = m.summary.Substring(firstQuote + 1, lastQuote - firstQuote - 1);
-                        }
-                        else
-                        {
-                            reply = m.summary;
-                        }
-
-                        // Draw Avatar
-                        Rect avatarRect = new Rect(10f, chatY, 32f, 32f);
-                        if (initiator != null)
-                        {
-                            Widgets.ThingIcon(avatarRect, initiator);
-                        }
-
-                        // Draw Name/Who is speaking
-                        string nameStr = initiator != null ? initiator.Name.ToStringShort : "Unknown";
-                        string targetStr = recipient != null ? recipient.Name.ToStringShort : "someone";
-                        string spokeToStr = $" said to {targetStr}";
-
-                        Vector2 nameSize = Text.CalcSize(nameStr);
-                        Rect nameRect = new Rect(52f, chatY, nameSize.x, 20f);
-                        
-                        Text.Font = GameFont.Small;
-                        GUI.color = new Color(0.35f, 0.65f, 1.0f);
-                        Widgets.Label(nameRect, nameStr);
-
-                        Vector2 spokeToSize = Text.CalcSize(spokeToStr);
-                        Rect spokeToRect = new Rect(52f + nameSize.x, chatY, spokeToSize.x, 20f);
-                        
-                        Text.Font = GameFont.Small;
-                        GUI.color = new Color(0.7f, 0.7f, 0.7f);
-                        Widgets.Label(spokeToRect, spokeToStr);
-
-                        // Draw time stamp
-                        string timeStr = FormatTimeOnly(m.gameTick, pawn);
-                        Rect timeRect = new Rect(52f + nameSize.x + spokeToSize.x + 8f, chatY + 2f, rightScrollWidth - 62f - nameSize.x - spokeToSize.x, 18f);
-                        
-                        Text.Font = GameFont.Tiny;
-                        GUI.color = new Color(0.55f, 0.55f, 0.55f, 0.85f);
-                        Widgets.Label(timeRect, timeStr);
-
-                        // Draw message content
-                        float textWidth = rightScrollWidth - 62f;
-                        Text.Font = GameFont.Small;
-                        float textHeight = Text.CalcHeight(reply, textWidth);
-                        Rect textRect = new Rect(52f, chatY + 22f, textWidth, textHeight);
-
-                        GUI.color = new Color(0.92f, 0.92f, 0.95f);
-                        Widgets.Label(textRect, reply);
-
-                        GUI.color = Color.white;
-                        float entryHeight = Mathf.Max(32f, 22f + textHeight);
-                        chatY += entryHeight + 16f;
+                        cur = new Session { overheard = true, startTick = m.gameTick, participantIds = new List<string>() };
+                        result.Add(cur);
                     }
-                    Widgets.EndScrollView();
+                    if (!string.IsNullOrEmpty(speaker) && !cur.participantIds.Contains(speaker)) cur.participantIds.Add(speaker);
+                    if (!string.IsNullOrEmpty(target) && !cur.participantIds.Contains(target)) cur.participantIds.Add(target);
+                    cur.lines.Add(new Line { senderId = speaker, text = ExtractOverheardReply(m.summary), tick = m.gameTick });
+                    lastTick = m.gameTick;
                 }
-                else
+            }
+
+            result.Sort((a, b) => b.startTick.CompareTo(a.startTick)); // newest first
+            if (selected != null && !result.Contains(selected)) selected = null;
+            return result;
+        }
+
+        // ── Left pane: the session list ─────────────────────────────────────────────────────────
+
+        private void DrawSessionList(Rect rect, List<Session> sessions)
+        {
+            const float rowH = 52f;
+            var view = new Rect(0f, 0f, rect.width - 16f, sessions.Count * rowH + 2f);
+            Widgets.BeginScrollView(rect, ref leftScroll, view);
+            float y = 0f;
+            foreach (var s in sessions)
+            {
+                var row = new Rect(0f, y, view.width, rowH - 4f);
+                if (selected == s) Widgets.DrawHighlightSelected(row);
+                else Widgets.DrawHighlightIfMouseover(row);
+                if (Widgets.ButtonInvisible(row, true))
                 {
-                    Text.Anchor = TextAnchor.MiddleCenter;
-                    Widgets.Label(contentRect, "No overheard conversations in recent history.");
-                    Text.Anchor = TextAnchor.UpperLeft;
+                    selected = (selected == s) ? null : s; // toggle: click the selected row again to see all
+                    rightScroll = Vector2.zero;
                 }
+
+                var origFont = Text.Font;
+                Text.Font = GameFont.Tiny;
+                GUI.color = s.overheard ? new Color(0.75f, 0.72f, 0.55f) : new Color(0.6f, 0.78f, 0.95f);
+                Widgets.Label(new Rect(row.x + 4f, row.y + 2f, row.width - 8f, 16f),
+                    $"{(s.overheard ? "Overheard" : "Conversation")} · {FormatTimeOnly(s.startTick, pawn)}");
+                GUI.color = Color.white;
+
+                // Participant avatars along the second line.
+                float ax = row.x + 4f;
+                foreach (var pid in s.participantIds)
+                {
+                    if (ax + 24f > row.xMax) break;
+                    Pawn p = pid == pawn.ThingID ? pawn : FindPawnById(pid);
+                    if (p != null) Widgets.ThingIcon(new Rect(ax, row.y + 20f, 22f, 22f), p);
+                    ax += 24f;
+                }
+                Text.Font = origFont;
+                y += rowH;
+            }
+            Widgets.EndScrollView();
+
+            if (sessions.Count == 0)
+            {
+                var oa = Text.Anchor; Text.Anchor = TextAnchor.MiddleCenter;
+                Widgets.Label(rect, "No conversations yet.");
+                Text.Anchor = oa;
             }
         }
 
-        private float CalculateChatScrollHeight(List<SynapseConversationMessage> messages, float width, Pawn pawn)
+        // ── Right pane: the stream ──────────────────────────────────────────────────────────────
+
+        private void DrawStream(Rect rect, List<Session> sessions)
         {
-            var originalFont = Text.Font;
+            var shown = selected != null ? new List<Session> { selected } : sessions;
+            if (shown.Count == 0)
+            {
+                var oa = Text.Anchor; Text.Anchor = TextAnchor.MiddleCenter;
+                Widgets.Label(rect, "Select a conversation, or let some happen.");
+                Text.Anchor = oa;
+                return;
+            }
+
+            float width = rect.width - 16f;
+            float total = 6f;
+            foreach (var s in shown) total += SessionHeight(s, width);
+
+            var view = new Rect(0f, 0f, width, total);
+            Widgets.BeginScrollView(rect, ref rightScroll, view);
+            float y = 6f;
+            foreach (var s in shown) y = DrawSession(s, width, y);
+            Widgets.EndScrollView();
+        }
+
+        private float SessionHeight(Session s, float width)
+        {
+            var origFont = Text.Font;
             Text.Font = GameFont.Small;
-            float total = 10f;
+            float h = 46f; // divider header
             float textWidth = width - 62f;
-            string lastDateStr = null;
-
-            foreach (var msg in messages)
+            foreach (var l in s.lines)
             {
-                string dateStr = FormatDateOnly(msg.gameTick, pawn);
-                if (dateStr != lastDateStr)
-                {
-                    lastDateStr = dateStr;
-                    total += 24f;
-                }
-                float textHeight = Text.CalcHeight(msg.message, textWidth);
-                float entryHeight = Mathf.Max(32f, 22f + textHeight);
-                total += entryHeight + 16f;
+                float th = Text.CalcHeight(l.text ?? "", textWidth);
+                h += Mathf.Max(32f, 22f + th) + 12f;
             }
-            Text.Font = originalFont;
-            return total;
+            Text.Font = origFont;
+            return h + 10f;
         }
 
-        private float CalculateOverheardScrollHeight(List<WeightedMemory> memories, float width, Pawn pawn)
+        private float DrawSession(Session s, float width, float y)
         {
-            float total = 10f;
-            float textWidth = width - 62f;
-            string lastDateStr = null;
+            // Divider header: type · date · time, a rule line, and the participant avatars.
+            var origFont = Text.Font;
+            var origColor = GUI.color;
+            Text.Font = GameFont.Tiny;
+            GUI.color = new Color(0.55f, 0.55f, 0.55f, 0.8f);
+            Widgets.DrawLineHorizontal(4f, y + 8f, width - 8f);
+            string head = $"  {(s.overheard ? "Overheard" : "Conversation")} · {FormatDateOnly(s.startTick, pawn)} {FormatTimeOnly(s.startTick, pawn)}  ";
+            float headW = Text.CalcSize(head).x;
+            GUI.color = s.overheard ? new Color(0.78f, 0.74f, 0.55f) : new Color(0.6f, 0.78f, 0.95f);
+            var headRect = new Rect(width / 2f - headW / 2f, y, headW, 16f);
+            Widgets.DrawBoxSolid(headRect, new Color(0.12f, 0.12f, 0.12f));
+            Widgets.Label(headRect, head);
 
-            foreach (var m in memories)
+            // Participant avatars on the header's right.
+            float ax = width - 8f - s.participantIds.Count * 22f;
+            foreach (var pid in s.participantIds)
             {
-                string dateStr = FormatDateOnly(m.gameTick, pawn);
-                if (dateStr != lastDateStr)
-                {
-                    lastDateStr = dateStr;
-                    total += 35f;
-                }
-
-                string reply = "";
-                int firstQuote = m.summary.IndexOf('"');
-                int lastQuote = m.summary.LastIndexOf('"');
-                if (firstQuote >= 0 && lastQuote > firstQuote)
-                {
-                    reply = m.summary.Substring(firstQuote + 1, lastQuote - firstQuote - 1);
-                }
-                else
-                {
-                    reply = m.summary;
-                }
-
-                Text.Font = GameFont.Small;
-                float textHeight = Text.CalcHeight(reply, textWidth);
-                float entryHeight = Mathf.Max(32f, 22f + textHeight);
-                total += entryHeight + 16f;
+                Pawn pp = pid == pawn.ThingID ? pawn : FindPawnById(pid);
+                if (pp != null && ax > headRect.xMax) Widgets.ThingIcon(new Rect(ax, y - 2f, 20f, 20f), pp);
+                ax += 22f;
             }
-            return total + 20f;
+            GUI.color = origColor;
+            Text.Font = origFont;
+            y += 26f;
+
+            foreach (var l in s.lines)
+            {
+                bool isSelf = l.senderId == pawn.ThingID;
+                Pawn sp = isSelf ? pawn : FindPawnById(l.senderId);
+                if (sp != null) Widgets.ThingIcon(new Rect(10f, y, 32f, 32f), sp);
+
+                string name = sp != null ? sp.Name.ToStringShort : (l.senderId ?? "Someone");
+                float nameW = Text.CalcSize(name).x;
+                Text.Font = GameFont.Small;
+                GUI.color = SpeakerColor(l.senderId, isSelf);
+                Widgets.Label(new Rect(52f, y, nameW, 20f), name);
+
+                Text.Font = GameFont.Tiny;
+                GUI.color = new Color(0.55f, 0.55f, 0.55f, 0.85f);
+                Widgets.Label(new Rect(52f + nameW + 8f, y + 2f, width - 62f - nameW, 18f), FormatTimeOnly(l.tick, pawn));
+
+                float textWidth = width - 62f;
+                Text.Font = GameFont.Small;
+                float th = Text.CalcHeight(l.text ?? "", textWidth);
+                GUI.color = new Color(0.92f, 0.92f, 0.95f);
+                Widgets.Label(new Rect(52f, y + 22f, textWidth, th), l.text ?? "");
+                GUI.color = origColor;
+
+                y += Mathf.Max(32f, 22f + th) + 12f;
+            }
+            return y + 10f;
+        }
+
+        // ── Helpers ─────────────────────────────────────────────────────────────────────────────
+
+        // Distinct colour per speaker so a multiway session is legible: the viewing pawn is blue, every other
+        // participant a stable colour by ThingID hash, so no two speakers blur together.
+        private static readonly Color SelfColor = new Color(0.35f, 0.65f, 1.0f);
+        private static readonly Color UnknownColor = new Color(0.85f, 0.85f, 0.85f);
+        private static readonly Color[] OtherPalette =
+        {
+            new Color(0.55f, 0.85f, 0.55f), new Color(0.95f, 0.78f, 0.45f), new Color(0.88f, 0.60f, 0.88f),
+            new Color(0.55f, 0.85f, 0.85f), new Color(0.95f, 0.62f, 0.55f), new Color(0.75f, 0.75f, 0.98f),
+        };
+
+        private static Color SpeakerColor(string senderId, bool isSelf)
+        {
+            if (isSelf) return SelfColor;
+            if (string.IsNullOrEmpty(senderId)) return UnknownColor;
+            return OtherPalette[System.Math.Abs(senderId.GetHashCode()) % OtherPalette.Length];
+        }
+
+        /// <summary>Pull the spoken line out of an "overheard" memory summary: prefer the LAST quoted run,
+        /// tolerate an unbalanced/absent quote by returning the whole summary rather than slicing garbage.</summary>
+        private static string ExtractOverheardReply(string summary)
+        {
+            if (string.IsNullOrEmpty(summary)) return summary ?? "";
+            int close = summary.LastIndexOf('"');
+            if (close <= 0) return summary.Trim();
+            int open = summary.LastIndexOf('"', close - 1);
+            if (open < 0) return summary.Trim();
+            string inner = summary.Substring(open + 1, close - open - 1).Trim();
+            return inner.Length > 0 ? inner : summary.Trim();
+        }
+
+        private Pawn FindPawnById(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            foreach (var map in Find.Maps)
+            {
+                if (map.mapPawns == null) continue;
+                var p = map.mapPawns.AllPawns.FirstOrDefault(x => x.ThingID == id);
+                if (p != null) return p;
+            }
+            return Find.WorldPawns?.AllPawnsAliveOrDead?.FirstOrDefault(x => x.ThingID == id);
         }
 
         private static string FormatDateOnly(int gameTick, Pawn pawn)
         {
             float longitude = 0f;
             if (pawn != null && pawn.Tile >= 0 && Find.WorldGrid != null)
-            {
                 longitude = Find.WorldGrid.LongLatOf(pawn.Tile).x;
-            }
             long absTick = RimSynapse.Utils.SynapseDateHelper.GameTickToAbsTick(gameTick);
-            
+
             long ticks = absTick + (long)(longitude * (60000f / 360f));
             long ticksRemainder = ticks % 3600000L;
             if (ticksRemainder < 0) ticksRemainder += 3600000L;
             int daysTotal = (int)(ticksRemainder / 60000L);
             int quadrumIndex = daysTotal / 15;
             int dayOfQuadrum = (daysTotal % 15) + 1;
-            
+
             int year = 5500 + (int)(ticks / 3600000L);
             if (ticks < 0 && ticksRemainder != 0) year--;
 
@@ -457,7 +346,6 @@ namespace RimSynapse.Conversations
                 3 => "Decembary",
                 _ => "Unknown"
             };
-
             return $"{quadrumLabel} {dayOfQuadrum}, {year}";
         }
 
@@ -465,32 +353,20 @@ namespace RimSynapse.Conversations
         {
             float longitude = 0f;
             if (pawn != null && pawn.Tile >= 0 && Find.WorldGrid != null)
-            {
                 longitude = Find.WorldGrid.LongLatOf(pawn.Tile).x;
-            }
             long absTick = RimSynapse.Utils.SynapseDateHelper.GameTickToAbsTick(gameTick);
-            
+
             int hour = GenDate.HourOfDay(absTick, longitude);
             int pmHour = hour % 12;
             if (pmHour == 0) pmHour = 12;
             string amPm = hour >= 12 ? "PM" : "AM";
 
-            return $"{pmHour}:00 {amPm}";
-        }
+            long localTicks = absTick + (long)(longitude * (60000f / 360f));
+            long inHour = localTicks % 2500L;
+            if (inHour < 0) inHour += 2500L;
+            int minute = Mathf.Clamp((int)(inHour * 60L / 2500L), 0, 59);
 
-        private Pawn FindPawnById(string id)
-        {
-            if (string.IsNullOrEmpty(id)) return null;
-
-            foreach (var map in Find.Maps)
-            {
-                if (map.mapPawns == null) continue;
-                var p = map.mapPawns.AllPawns.FirstOrDefault(x => x.ThingID == id);
-                if (p != null) return p;
-            }
-
-            var worldPawn = Find.WorldPawns?.AllPawnsAliveOrDead?.FirstOrDefault(x => x.ThingID == id);
-            return worldPawn;
+            return $"{pmHour}:{minute:00} {amPm}";
         }
     }
 }

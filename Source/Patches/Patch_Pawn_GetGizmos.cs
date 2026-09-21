@@ -23,27 +23,16 @@ namespace RimSynapse.Conversations.Patches
             if (Current.ProgramState != ProgramState.Playing || Find.World == null) yield break;
             if (!pawn.RaceProps.Humanlike || pawn.Dead) yield break;
 
-            bool isResident = RimSynapse.SynapseCoreProviders.IsResident(pawn);
-
-            if (pawn.Faction == Faction.OfPlayer)
+            // Anyone the colony converses with gets the history button (#41): colonists, prisoners,
+            // slaves, staying guests and adopted residents — not just the player faction. The label
+            // names their role so "this prisoner" / "this guest" reads right.
+            if (RimSynapse.SynapseCoreProviders.MayConverse(pawn))
             {
+                string role = RimSynapse.SynapseCoreProviders.ConversationRole(pawn);
                 yield return new Command_Action
                 {
                     defaultLabel = "Dialogue History",
-                    defaultDesc = "View the history of statements overheard or spoken by this colonist.",
-                    icon = ContentFinder<Texture2D>.Get("UI/Commands/ChatHistoryIcon", false) ?? BaseContent.BadTex,
-                    action = () =>
-                    {
-                        Find.WindowStack.Add(new Dialog_PawnConversationHistory(pawn));
-                    }
-                };
-            }
-            else if (isResident)
-            {
-                yield return new Command_Action
-                {
-                    defaultLabel = "Dialogue History",
-                    defaultDesc = "View the history of statements overheard or spoken by this resident.",
+                    defaultDesc = $"View the history of statements overheard or spoken by this {role}.",
                     icon = ContentFinder<Texture2D>.Get("UI/Commands/ChatHistoryIcon", false) ?? BaseContent.BadTex,
                     action = () =>
                     {

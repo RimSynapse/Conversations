@@ -4,7 +4,7 @@
     <author>RimSynapse Team</author>
     <packageId>RimSynapse.Conversations</packageId>
     <url>https://github.com/RimSynapse/Conversations</url>
-    <modVersion>0.9.4</modVersion>
+    <modVersion>0.10.0</modVersion>
     <supportedVersions>
         <li>1.5</li>
         <li>1.6</li>
@@ -15,6 +15,12 @@
             <displayName>RimSynapse - Core</displayName>
             <downloadUrl>https://github.com/RimSynapse/Core/releases/latest</downloadUrl>
             <steamWorkshopUrl>steam://url/CommunityFilePage/3760829776</steamWorkshopUrl>
+        </li>
+        <li>
+            <packageId>RimSynapse.Psychology</packageId>
+            <displayName>RimSynapse - Psychology</displayName>
+            <downloadUrl>https://github.com/RimSynapse/Psychology/releases/latest</downloadUrl>
+            <steamWorkshopUrl>steam://url/CommunityFilePage/3760830041</steamWorkshopUrl>
         </li>
     </modDependencies>
     <loadAfter>
@@ -27,7 +33,7 @@
     </loadAfter>
     <description>
 Discord Community: https://discord.gg/eVBebZ2N9s
-Version: v0.9.4 (Target: RimWorld 1.6)
+Version: v0.10.0 (Target: RimWorld 1.6)
 
 RimSynapse - Conversations
 Official Wiki and Documentation: https://github.com/RimSynapse/Conversations/wiki
@@ -43,6 +49,16 @@ Conversations tracks its own release milestones. What ships next is scoped to di
 0.10 - Expansion Dialects: activate the DLC-specific flavours listed in the compatibility matrix - noble tone demands and psycast interjections (Royalty), faith debates and conversion attempts (Ideology), xenotype dialects and mechanitor comm chatter (Biotech), void whispers (Anomaly).
 Backlog: group conversations (three-way and small-group dialogue with turn-taking and reactions from listeners in earshot), player-to-pawn direct dialogue, more Universe Actions (relationship shifts, inspire-to-job), and additional environmental / event triggers.
 These ship when they are ready - no dates.
+
+--- Changelog (v0.10.0) - Motivated Dialogue ---
+- NEW - Colonists now talk from a per-pawn agenda of talking points formed from their own psychology - memories, burdens, recent work, relationships - instead of picking from canned topics. What a pawn brings up is driven by what actually happened to them.
+- NEW - Multiway conversations: pawns settled together in a room hold one shared conversation (the kitchen/dining table case) rather than a tangle of pairwise ones, gated on being genuinely present and settled - lines no longer fire at someone just passing through, and a conversation ends when a participant leaves the room.
+- NEW - Acts of care become things pawns talk about: a doctor tending a patient, and (with Biotech) nursing an infant or teaching a child, each leave a topic both pawns can raise - including thanking their carer to their face.
+- NEW - More of who a pawn is surfaces in talk: how a relationship has warmed or cooled (including romance), what they're living with health-wise, and - with Ideology - musing on or quietly questioning their own precepts and feeling their faith shift.
+- NEW - Prisoners, slaves and guests are first-class conversation participants with their own Dialogue History, and outsiders (raiders, traders, visitors) get cheap authored/ambient barks.
+- NEW - The Dialogue History window is a session feed: talk auto-groups into discrete conversations (and overheard) as a chronological stream of blocks, each showing who took part, with every speaker in their own colour.
+- IMPROVED - One shared prompt drives both the game and the offline Prompt Lab, and colonists keep speaking in plain, everyday words rather than clinical report-speak.
+- Requires RimSynapse Core v0.10.0 and RimSynapse Psychology v0.10.0.
 
 --- Changelog (v0.9.4) - Better small talk ---
 - Fixed: conversation subjects no longer quote internal activity statistics - "the lying down (39%) they've been busy with" becomes a clean, natural topic, and dull activities like sleeping or wandering are skipped in favor of something worth mentioning.
@@ -77,9 +93,10 @@ Full version history: https://github.com/RimSynapse/Conversations/wiki/Changelog
 - Ideology DLC: Compatible and Optional. Enables faith debates and active proselytizing.
 - Biotech DLC: Compatible and Optional. Enables xenotype dialects and mechanitor comms.
 - Anomaly DLC: Compatible and Optional. Enables paranoid void whispers.
-- RimSynapse - Psychology: Compatible and Optional. Colonists will naturally bring up their deep core memories, traumas, and trust levels during everyday conversations.
+- RimSynapse - Psychology: Required. Every line is voiced from the pawn's psychology - their core memories, traumas, trust and speaking voice - which is what makes these conversations theirs and not generic chatter.
 
 --- Requirements ---
 - RimSynapse - Core (Must be loaded before this mod)
+- RimSynapse - Psychology (Must be loaded before this mod)
     </description>
 </ModMetaData>

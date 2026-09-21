@@ -9,6 +9,7 @@ Welcome to the documentation for the **RimSynapse Conversations** module. Below 
 - [Developer's Guide](Developers_Guide) — extension points for modders: game tools, conversation topics, context keys, the generation pipeline, and the Harmony surface.
 
 **Reference & Design**
+- [Motivated Dialogue](Motivated_Dialogue) — the 0.10 talking-point agenda: every formation rule (events, burdens, activity, bond shifts, visitor links, colony rumors, propagation, ambient), the point model, lifecycle, trigger, and debug actions.
 - [Pawn Dialogues And Game Tools](Pawn_Dialogues_and_Game_Tools)
 - [Changelog](Changelog)
 - [DESIGN CHAT](DESIGN_CHAT)

@@ -25,15 +25,18 @@ namespace RimSynapse.Conversations
         private static readonly List<Entry> recent = new List<Entry>();
         private const int MaxRecords = 60;
 
-        public static void Add(Pawn a, Pawn b, ChatTopicDef topic, float startDist, float endDist,
+        /// <summary><paramref name="topicKey"/> is the beat's topicKey ("burden", "day", "event:…");
+        /// <paramref name="deep"/> is the beat's register. (Was keyed on the retired ChatTopicDef, which every
+        /// live caller passed null for — so "Deep talk" had been permanently empty.)</summary>
+        public static void Add(Pawn a, Pawn b, string topicKey, bool deep, float startDist, float endDist,
             int elapsedTicks, long realMs, string source)
         {
             var e = new Entry
             {
                 a = a?.LabelShort ?? "?",
                 b = b?.LabelShort ?? "?",
-                topic = topic?.topicName ?? "Social",
-                deep = topic?.isDeepTalk ?? false,
+                topic = string.IsNullOrEmpty(topicKey) ? "Social" : topicKey,
+                deep = deep,
                 startDist = startDist,
                 endDist = endDist,
                 elapsedTicks = elapsedTicks,

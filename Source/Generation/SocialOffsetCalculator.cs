@@ -29,6 +29,19 @@ namespace RimSynapse.Conversations.Generation
                 return new SocialOffsets { trust = -0.6f, familiarity = 0f, affinity = -2f };
             }
 
+            // A colonist and a captive don't build a friendship over passing chatter (#41). Opinion still
+            // drifts a little, but the warm familiarity/affinity two colonists earn is muted — you don't
+            // bond with your jailer over the weather. (Coercive warden sessions are handled above.)
+            if (IsCaptorCaptive(initiator, recipient))
+            {
+                return new SocialOffsets
+                {
+                    trust = Mathf.Clamp(opinion > 0 ? 0.2f : -0.1f, -1f, 1f),
+                    familiarity = beat.isDeep ? 0.6f : 0.3f,
+                    affinity = opinion > 20 ? 0.3f : opinion < -20 ? -0.4f : 0f
+                };
+            }
+
             float familiarity = beat.isDeep ? 2f : 1.2f;
 
             float trust = opinion > 0 ? 0.4f : opinion < 0 ? -0.3f : 0.1f;
@@ -43,6 +56,17 @@ namespace RimSynapse.Conversations.Generation
                 familiarity = Mathf.Clamp(familiarity, 0f, 3f),
                 affinity = Mathf.Clamp(affinity, -2f, 2f)
             };
+        }
+
+        /// <summary>True when exactly one of the pair belongs to the colony and the other is held by it —
+        /// the asymmetric captor/captive relationship whose social aftermath must not read as bonding.</summary>
+        private static bool IsCaptorCaptive(Pawn a, Pawn b)
+        {
+            string ra = RimSynapse.SynapseCoreProviders.ConversationRole(a);
+            string rb = RimSynapse.SynapseCoreProviders.ConversationRole(b);
+            bool Captive(string r) => r == "prisoner" || r == "slave";
+            bool Free(string r) => r == "colonist" || r == "resident";
+            return (Captive(ra) && Free(rb)) || (Captive(rb) && Free(ra));
         }
     }
 }
